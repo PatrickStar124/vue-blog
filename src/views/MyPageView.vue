@@ -1,4 +1,4 @@
-<!-- src/views/MyPageView.vue -->
+<!-- MyPageView.vue -->
 <template>
   <div class="my-page-container">
     <div class="header">
@@ -34,12 +34,15 @@
           <div class="stats">总计: {{ purchasedItems.length }} 件</div>
         </div>
 
-        <div v-if="loading" class="loading">加载中...</div>
+        <div v-if="loading" class="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>加载中...</p>
+        </div>
 
         <div v-else-if="purchasedItems.length === 0" class="empty-state">
           <i class="fas fa-shopping-bag"></i>
           <p>还没有购买任何商品</p>
-          <p class="hint-text">购买功能开发中...</p>
+          <p class="hint-text">去首页逛逛，发现心仪的商品吧！</p>
           <button class="browse-btn" @click="goBack">
             <i class="fas fa-store"></i> 去市场逛逛
           </button>
@@ -48,16 +51,21 @@
         <div v-else class="items-grid">
           <div v-for="item in purchasedItems" :key="item.id" class="item-card">
             <div class="item-image">
-              <img :src="item.image || '/api/placeholder/200/150'" :alt="item.name" />
+              <img :src="item.image || getDefaultImage()" :alt="item.name" />
+              <div class="purchase-badge">已购买</div>
             </div>
             <div class="item-info">
               <h3>{{ item.name }}</h3>
               <p class="item-description">{{ item.description }}</p>
               <div class="item-details">
-                <span class="price">¥{{ item.price }}</span>
-                <span class="purchase-date">购买时间: {{ formatDate(item.purchase_date) }}</span>
+                <span class="price">¥{{ formatPrice(item.price) }}</span>
+                <span class="purchase-date">购买时间: {{ formatDate(item.sold_at) }}</span>
               </div>
-              <div class="item-status delivered">已送达</div>
+              <div class="item-meta">
+                <span class="seller">卖家: {{ item.seller?.username || '未知' }}</span>
+                <span class="category">{{ getCategoryLabel(item.category) }}</span>
+              </div>
+              <div class="item-status delivered"><i class="fas fa-check-circle"></i> 交易完成</div>
             </div>
           </div>
         </div>
@@ -70,7 +78,10 @@
           <button class="add-btn" @click="goToPost"><i class="fas fa-plus"></i> 发布新商品</button>
         </div>
 
-        <div v-if="loading" class="loading">加载中...</div>
+        <div v-if="loading" class="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>加载中...</p>
+        </div>
 
         <div v-else-if="sellingItems.length === 0" class="empty-state">
           <i class="fas fa-tags"></i>
@@ -81,28 +92,40 @@
         <div v-else class="items-grid">
           <div v-for="item in sellingItems" :key="item.id" class="item-card">
             <div class="item-image">
-              <img :src="item.image || getImageUrl(item)" :alt="item.name" />
+              <img :src="item.image || getDefaultImage()" :alt="item.name" />
               <div class="item-actions">
-                <button class="action-btn edit" @click="editItem(item)">
+                <button @click="editItem(item)" class="action-btn edit" title="编辑">
                   <i class="fas fa-edit"></i>
                 </button>
-                <button class="action-btn delete" @click="deleteItem(item.id)">
+                <button @click="deleteItem(item.id)" class="action-btn delete" title="删除">
                   <i class="fas fa-trash"></i>
                 </button>
+              </div>
+              <div v-if="item.is_sold" class="sold-overlay">
+                <span>已售出</span>
               </div>
             </div>
             <div class="item-info">
               <h3>{{ item.name }}</h3>
               <p class="item-description">{{ item.description }}</p>
               <div class="item-details">
-                <span class="price">¥{{ item.price }}</span>
+                <span class="price">¥{{ formatPrice(item.price) }}</span>
                 <div class="item-stats">
                   <span><i class="fas fa-eye"></i> {{ item.views || 0 }}</span>
                   <span><i class="fas fa-heart"></i> {{ item.favorites || 0 }}</span>
                 </div>
               </div>
-              <div class="item-status selling">出售中</div>
+              <div class="item-meta">
+                <span class="category">{{ getCategoryLabel(item.category) }}</span>
+                <span class="condition">{{ getConditionLabel(item.condition) }}</span>
+              </div>
+              <div class="item-status" :class="item.is_sold ? 'sold' : 'selling'">
+                {{ item.is_sold ? '已售出' : '出售中' }}
+              </div>
               <div class="item-date">发布时间: {{ formatDate(item.created_at) }}</div>
+              <div v-if="item.is_sold && item.buyer" class="buyer-info">
+                购买者: {{ item.buyer.username }}
+              </div>
             </div>
           </div>
         </div>
@@ -130,7 +153,27 @@ const currentUser = computed(() => {
 const purchasedItems = ref([])
 const sellingItems = ref([])
 
-// 🔥 获取我的出售商品（调用真实API）
+// 分类选项
+const categories = [
+  { value: 'electronics', label: '📱 电子产品' },
+  { value: 'clothing', label: '👕 服装鞋帽' },
+  { value: 'books', label: '📚 图书文具' },
+  { value: 'sports', label: '⚽ 运动户外' },
+  { value: 'beauty', label: '💄 美妆个护' },
+  { value: 'home', label: '🏠 家居日用' },
+  { value: 'other', label: '📦 其他' },
+]
+
+// 商品状态选项
+const conditions = {
+  new: '🆕 全新',
+  like_new: '✨ 几乎全新',
+  good: '👍 良好',
+  fair: '✅ 一般',
+  needs_repair: '🔧 需维修',
+}
+
+// 获取我的出售商品
 const fetchSellingItems = async () => {
   try {
     const token = localStorage.getItem('authToken')
@@ -150,29 +193,57 @@ const fetchSellingItems = async () => {
       } else {
         console.error('API返回错误:', data.message)
         // 如果API出错，使用模拟数据
-        sellingItems.value = getMockSellingData()
+        useMockSellingData()
       }
     } else {
       console.error('获取出售商品失败，状态码:', response.status)
       // 使用模拟数据
-      sellingItems.value = getMockSellingData()
+      useMockSellingData()
     }
   } catch (error) {
     console.error('获取出售商品失败:', error)
     // 使用模拟数据
-    sellingItems.value = getMockSellingData()
+    useMockSellingData()
   }
 }
 
-// 🔥 获取我的购买记录（直接使用模拟数据，因为数据库没有相关字段）
+// 获取我的购买记录
 const fetchPurchasedItems = async () => {
-  // 直接使用模拟数据，因为数据库没有buyer字段
-  purchasedItems.value = getMockPurchasesData()
+  try {
+    const token = localStorage.getItem('authToken')
+    if (!token) return
+
+    const response = await fetch('http://127.0.0.1:8000/api/user-goods/my-purchases/', {
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success) {
+        purchasedItems.value = data.purchases || []
+        console.log('我的购买记录:', purchasedItems.value)
+      } else {
+        console.error('API返回错误:', data.message)
+        // 如果API不存在，使用模拟数据
+        useMockPurchasesData()
+      }
+    } else {
+      console.error('获取购买记录失败，状态码:', response.status)
+      // 使用模拟数据
+      useMockPurchasesData()
+    }
+  } catch (error) {
+    console.error('获取购买记录失败:', error)
+    // 使用模拟数据
+    useMockPurchasesData()
+  }
 }
 
 // 模拟出售数据（后备方案）
-const getMockSellingData = () => {
-  return [
+const useMockSellingData = () => {
+  sellingItems.value = [
     {
       id: 1,
       name: '二手相机',
@@ -185,25 +256,8 @@ const getMockSellingData = () => {
       views: 45,
       favorites: 3,
       status: 'selling',
+      is_sold: false,
       created_at: '2024-01-15 10:30:00',
-      seller: {
-        id: currentUser.value?.id,
-        username: currentUser.value?.username || '当前用户',
-      },
-    },
-    {
-      id: 2,
-      name: '编程书籍',
-      price: '50.00',
-      image: null,
-      description: 'Python编程相关书籍合集',
-      category: 'books',
-      condition: 'good',
-      location: '图书馆附近',
-      views: 23,
-      favorites: 1,
-      status: 'selling',
-      created_at: '2024-01-10 14:20:00',
       seller: {
         id: currentUser.value?.id,
         username: currentUser.value?.username || '当前用户',
@@ -212,9 +266,9 @@ const getMockSellingData = () => {
   ]
 }
 
-// 模拟购买数据
-const getMockPurchasesData = () => {
-  return [
+// 模拟购买数据（后备方案）
+const useMockPurchasesData = () => {
+  purchasedItems.value = [
     {
       id: 3,
       name: 'MacBook Pro',
@@ -224,38 +278,18 @@ const getMockPurchasesData = () => {
       category: 'electronics',
       condition: 'new',
       location: '教学楼B座',
-      purchase_date: '2024-01-15 16:45:00',
+      sold_at: '2024-01-15 16:45:00',
       status: 'delivered',
       seller: {
         id: 2,
         username: 'tech_seller',
       },
     },
-    {
-      id: 4,
-      name: '无线耳机',
-      price: '300.00',
-      image: null,
-      description: '音质很好的无线耳机',
-      category: 'electronics',
-      condition: 'like_new',
-      location: '学生公寓',
-      purchase_date: '2024-01-12 09:20:00',
-      status: 'delivered',
-      seller: {
-        id: 3,
-        username: 'audio_lover',
-      },
-    },
   ]
 }
 
-// 获取图片URL
-const getImageUrl = (item) => {
-  if (item.image) {
-    return item.image
-  }
-  // 默认图片
+// 获取默认图片
+const getDefaultImage = () => {
   return '/api/placeholder/200/150'
 }
 
@@ -268,6 +302,22 @@ const formatDate = (dateString) => {
   } catch {
     return dateString
   }
+}
+
+// 格式化价格
+const formatPrice = (price) => {
+  return parseFloat(price).toFixed(2)
+}
+
+// 获取分类显示名称
+const getCategoryLabel = (categoryValue) => {
+  const category = categories.find((cat) => cat.value === categoryValue)
+  return category ? category.label : categoryValue
+}
+
+// 获取状态显示名称
+const getConditionLabel = (conditionValue) => {
+  return conditions[conditionValue] || conditionValue
 }
 
 // 删除商品
@@ -301,7 +351,7 @@ const deleteItem = async (itemId) => {
   }
 }
 
-// 编辑商品（暂时跳转到首页）
+// 编辑商品
 const editItem = (item) => {
   alert('编辑功能开发中...')
   // router.push(`/edit-item/${item.id}`)
@@ -322,7 +372,7 @@ const loadData = async () => {
   try {
     await Promise.all([
       fetchSellingItems(), // 出售商品用真实数据
-      fetchPurchasedItems(), // 购买记录用模拟数据
+      fetchPurchasedItems(), // 购买记录用真实数据
     ])
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -354,6 +404,16 @@ onMounted(() => {
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+  color: #2c3e50;
+  margin: 0;
+}
+
+.user-info {
+  color: #7f8c8d;
+  margin-top: 5px;
 }
 
 .tabs {
@@ -395,6 +455,16 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.section-header h2 {
+  color: #2c3e50;
+  margin: 0;
+}
+
+.stats {
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
 .items-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -407,6 +477,7 @@ onMounted(() => {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   transition: transform 0.3s ease;
+  position: relative;
 }
 
 .item-card:hover {
@@ -425,12 +496,30 @@ onMounted(() => {
   object-fit: cover;
 }
 
+.purchase-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #27ae60;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
 .item-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   display: flex;
   gap: 5px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.item-card:hover .item-actions {
+  opacity: 1;
 }
 
 .action-btn {
@@ -452,6 +541,21 @@ onMounted(() => {
 
 .action-btn.delete {
   background: #e74c3c;
+}
+
+.sold-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
 }
 
 .item-info {
@@ -498,18 +602,28 @@ onMounted(() => {
   color: #95a5a6;
 }
 
-.item-date {
+.item-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
   font-size: 12px;
-  color: #95a5a6;
-  margin-top: 5px;
+}
+
+.seller,
+.category,
+.condition {
+  color: #7f8c8d;
 }
 
 .item-status {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: bold;
+  margin-bottom: 5px;
 }
 
 .item-status.selling {
@@ -517,9 +631,26 @@ onMounted(() => {
   color: #155724;
 }
 
+.item-status.sold {
+  background: #f8d7da;
+  color: #721c24;
+}
+
 .item-status.delivered {
   background: #d1ecf1;
   color: #0c5460;
+}
+
+.item-date {
+  font-size: 12px;
+  color: #95a5a6;
+  margin-bottom: 5px;
+}
+
+.buyer-info {
+  font-size: 12px;
+  color: #7f8c8d;
+  font-style: italic;
 }
 
 .empty-state {
@@ -586,5 +717,37 @@ onMounted(() => {
   text-align: center;
   padding: 40px;
   color: #666;
+}
+
+.loading i {
+  font-size: 32px;
+  color: #3498db;
+  margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+  .my-page-container {
+    padding: 10px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .items-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .item-actions {
+    opacity: 1; /* 在移动端始终显示操作按钮 */
+  }
 }
 </style>

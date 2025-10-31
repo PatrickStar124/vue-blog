@@ -1,40 +1,40 @@
+<!-- ItemDetailView.vue -->
 <template>
   <div class="item-detail-container">
     <div class="header">
-      <button class="back-btn" @click="goBack">
-        <i class="fas fa-arrow-left"></i> 返回
-      </button>
+      <button class="back-btn" @click="goBack"><i class="fas fa-arrow-left"></i> 返回</button>
       <h1>商品详情</h1>
-      <div></div> <!-- 占位 -->
+      <div></div>
+      <!-- 占位 -->
     </div>
 
     <div v-if="loading" class="loading">
       <i class="fas fa-spinner fa-spin"></i>
       <p>加载中...</p>
     </div>
-    
+
     <div v-else-if="error" class="error">
       <i class="fas fa-exclamation-circle"></i>
       <p>{{ error }}</p>
       <button @click="goBack" class="retry-btn">返回</button>
     </div>
-    
+
     <div v-else-if="item" class="item-detail">
       <div class="item-images">
-        <img :src="getImageUrl(item)" :alt="item.name" class="main-image">
+        <img :src="item.image || '/api/placeholder/400x300'" :alt="item.name" class="main-image" />
       </div>
-      
+
       <div class="item-info">
         <h2 class="item-title">{{ item.name }}</h2>
-        
+
         <!-- 出售状态 -->
         <div class="item-status">
           <span v-if="item.is_sold" class="status-badge sold">已售出</span>
           <span v-else class="status-badge available">出售中</span>
         </div>
-        
+
         <div class="item-price">¥{{ formatPrice(item.price) }}</div>
-        
+
         <div class="item-meta">
           <div class="meta-item">
             <span class="meta-label">分类：</span>
@@ -57,17 +57,17 @@
             <span class="meta-value">{{ formatDate(item.sold_at) }}</span>
           </div>
         </div>
-        
+
         <div class="item-description">
           <h3>商品描述</h3>
           <p>{{ item.description }}</p>
         </div>
-        
+
         <!-- 购买按钮区域 -->
         <div class="action-section" v-if="!isItemOwner(item)">
-          <button 
-            v-if="!item.is_sold" 
-            class="purchase-btn" 
+          <button
+            v-if="!item.is_sold"
+            class="purchase-btn"
             @click="handlePurchase"
             :disabled="purchasing"
           >
@@ -82,9 +82,7 @@
 
         <!-- 商品所有者操作 -->
         <div class="owner-actions" v-if="isItemOwner(item)">
-          <button class="edit-btn" @click="editItem">
-            <i class="fas fa-edit"></i> 编辑商品
-          </button>
+          <button class="edit-btn" @click="editItem"><i class="fas fa-edit"></i> 编辑商品</button>
           <button class="delete-btn" @click="deleteItem">
             <i class="fas fa-trash"></i> 删除商品
           </button>
@@ -108,22 +106,23 @@ const purchasing = ref(false)
 
 // 商品状态选项
 const conditions = {
-  'new': '🆕 全新',
-  'like_new': '✨ 几乎全新', 
-  'good': '👍 良好',
-  'fair': '✅ 一般',
-  'needs_repair': '🔧 需维修'
+  new: '🆕 全新',
+  like_new: '✨ 几乎全新',
+  good: '👍 良好',
+  fair: '✅ 一般',
+  needs_repair: '🔧 需维修',
 }
 
 // 分类选项
 const categories = [
+  { value: '全部', label: '全部' },
   { value: 'electronics', label: '📱 电子产品' },
   { value: 'clothing', label: '👕 服装鞋帽' },
   { value: 'books', label: '📚 图书文具' },
   { value: 'sports', label: '⚽ 运动户外' },
   { value: 'beauty', label: '💄 美妆个护' },
   { value: 'home', label: '🏠 家居日用' },
-  { value: 'other', label: '📦 其他' }
+  { value: 'other', label: '📦 其他' },
 ]
 
 // 获取当前用户信息
@@ -141,7 +140,7 @@ const isItemOwner = (item) => {
 const fetchItemDetail = async () => {
   loading.value = true
   error.value = ''
-  
+
   try {
     const token = localStorage.getItem('authToken')
     if (!token) {
@@ -150,8 +149,8 @@ const fetchItemDetail = async () => {
 
     const response = await fetch(`http://127.0.0.1:8000/api/goods/${route.params.id}/`, {
       headers: {
-        'Authorization': `Token ${token}`
-      }
+        Authorization: `Token ${token}`,
+      },
     })
 
     if (!response.ok) {
@@ -172,17 +171,6 @@ const fetchItemDetail = async () => {
   }
 }
 
-// 获取图片URL
-const getImageUrl = (item) => {
-  if (item.image) {
-    if (item.image.startsWith('http')) {
-      return item.image
-    }
-    return `http://127.0.0.1:8000${item.image}`
-  }
-  return '/api/placeholder/400x300'
-}
-
 // 购买商品
 const handlePurchase = async () => {
   if (!confirm(`确定要购买 "${item.value.name}" 吗？\n价格：¥${item.value.price}`)) {
@@ -199,121 +187,25 @@ const handlePurchase = async () => {
     const response = await fetch(`http://127.0.0.1:8000/api/goods/${route.params.id}/purchase/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${token}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
     })
 
     const data = await response.json()
-    console.log('购买响应:', data)
 
-    if (response.ok && data.success) {
+    if (data.success) {
       alert('购买成功！商品已添加到您的库存中。')
-      
-      // 更新商品状态为已售出
-      item.value.is_sold = true
-      item.value.sold_at = new Date().toISOString()
-      
-      // 更新本地存储的商品列表
-      updateLocalItems()
-      
-      // 保存购买记录到本地存储
-      savePurchaseToLocal()
-      
-      // 跳转到我的页面库存标签
-      setTimeout(() => {
-        router.push('/my?tab=inventory')
-      }, 1500)
-      
+      // 刷新商品详情
+      await fetchItemDetail()
     } else {
       throw new Error(data.message || '购买失败')
     }
   } catch (err) {
     console.error('购买失败:', err)
-    
-    // 如果后端API有问题，使用模拟购买
-    if (err.message.includes('timezone') || err.message.includes('500') || err.message.includes('400')) {
-      console.log('检测到后端错误，使用模拟购买...')
-      await mockPurchase()
-    } else {
-      alert('购买失败: ' + err.message)
-    }
+    alert('购买失败: ' + err.message)
   } finally {
     purchasing.value = false
-  }
-}
-
-// 模拟购买功能
-const mockPurchase = async () => {
-  try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    item.value.is_sold = true
-    item.value.sold_at = new Date().toISOString()
-    
-    updateLocalItems()
-    savePurchaseToLocal()
-    
-    alert('购买成功！商品已添加到您的库存中。')
-    
-    setTimeout(() => {
-      router.push('/my?tab=inventory')
-    }, 1500)
-    
-  } catch (err) {
-    console.error('模拟购买失败:', err)
-    alert('购买失败: ' + err.message)
-  }
-}
-
-// 更新本地存储的商品列表
-const updateLocalItems = () => {
-  try {
-    const cachedItems = localStorage.getItem('cachedGoods')
-    if (cachedItems) {
-      const items = JSON.parse(cachedItems)
-      const updatedItems = items.map(goods => {
-        if (goods.id === item.value.id) {
-          return {
-            ...goods,
-            is_sold: true,
-            sold_at: new Date().toISOString()
-          }
-        }
-        return goods
-      })
-      localStorage.setItem('cachedGoods', JSON.stringify(updatedItems))
-    }
-  } catch (error) {
-    console.error('更新本地缓存失败:', error)
-  }
-}
-
-// 保存购买记录到本地存储
-const savePurchaseToLocal = () => {
-  try {
-    const purchaseRecord = {
-      id: Date.now(),
-      goods_id: item.value.id,
-      name: item.value.name,
-      price: item.value.price,
-      image: item.value.image,
-      description: item.value.description,
-      category: item.value.category,
-      condition: item.value.condition,
-      location: item.value.location,
-      seller: item.value.seller,
-      purchase_date: new Date().toISOString(),
-      status: 'delivered'
-    }
-    
-    const existingPurchases = JSON.parse(localStorage.getItem('myPurchases') || '[]')
-    existingPurchases.unshift(purchaseRecord)
-    localStorage.setItem('myPurchases', JSON.stringify(existingPurchases))
-    
-    console.log('购买记录已保存到本地存储:', purchaseRecord)
-  } catch (error) {
-    console.error('保存购买记录失败:', error)
   }
 }
 
@@ -340,14 +232,18 @@ const formatDate = (dateString) => {
   if (!dateString) return '未知时间'
   try {
     const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    return (
+      date.toLocaleDateString('zh-CN') +
+      ' ' +
+      date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    )
   } catch {
     return dateString
   }
 }
 
 const getCategoryLabel = (categoryValue) => {
-  const category = categories.find(cat => cat.value === categoryValue)
+  const category = categories.find((cat) => cat.value === categoryValue)
   return category ? category.label : categoryValue
 }
 
@@ -538,7 +434,8 @@ onMounted(() => {
   margin-top: 20px;
 }
 
-.edit-btn, .delete-btn {
+.edit-btn,
+.delete-btn {
   padding: 12px 20px;
   border: none;
   border-radius: 6px;
@@ -559,7 +456,8 @@ onMounted(() => {
   color: white;
 }
 
-.loading, .error {
+.loading,
+.error {
   text-align: center;
   padding: 60px 40px;
   background: white;
@@ -593,27 +491,27 @@ onMounted(() => {
   .item-detail-container {
     padding: 10px;
   }
-  
+
   .item-detail {
     grid-template-columns: 1fr;
     gap: 20px;
     padding: 20px;
   }
-  
+
   .header {
     flex-direction: column;
     gap: 15px;
     text-align: center;
   }
-  
+
   .item-title {
     font-size: 1.5rem;
   }
-  
+
   .item-price {
     font-size: 2rem;
   }
-  
+
   .owner-actions {
     flex-direction: column;
   }
