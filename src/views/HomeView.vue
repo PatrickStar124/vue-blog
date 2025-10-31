@@ -1,172 +1,4 @@
-<template>
-  <div class="container">
-    <!-- 顶部导航 -->
-    <div class="header">
-      <div class="header-left">
-        <h1><i class="fas fa-store"></i> 校园二手交易平台</h1>
-        <div class="user-info" v-if="currentUser">欢迎，{{ currentUser.username }}！</div>
-      </div>
-      <div class="header-actions">
-        <button class="my-page-btn" @click="goToMyPage" v-if="isAuthenticated">
-          <i class="fas fa-user"></i> 我的页面
-        </button>
-        <button class="add-btn" @click="goToPost" v-if="isAuthenticated">
-          <i class="fas fa-plus"></i> 发布商品
-        </button>
-        <button class="logout-btn" @click="handleLogout" v-if="isAuthenticated">
-          <i class="fas fa-sign-out-alt"></i> 退出
-        </button>
-        <button class="login-btn" @click="goToLogin" v-if="!isAuthenticated">
-          <i class="fas fa-sign-in-alt"></i> 登录
-        </button>
-        <button class="register-btn" @click="goToRegister" v-if="!isAuthenticated">
-          <i class="fas fa-user-plus"></i> 注册
-        </button>
-      </div>
-    </div>
-
-    <!-- 未登录时的欢迎页面 -->
-    <div v-if="!isAuthenticated" class="welcome-section">
-      <div class="welcome-content">
-        <h2>欢迎来到校园二手交易平台</h2>
-        <p>闲置物品 · 循环利用 · 绿色校园</p>
-        <div class="welcome-actions">
-          <button class="btn-primary" @click="goToLogin">
-            <i class="fas fa-sign-in-alt"></i> 立即登录
-          </button>
-          <button class="btn-secondary" @click="goToRegister">
-            <i class="fas fa-user-plus"></i> 注册账号
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 已登录用户显示商品列表 -->
-    <div v-else>
-      <!-- 筛选器 -->
-      <div class="filters-section">
-        <div class="filters">
-          <div
-            v-for="category in categories"
-            :key="category.value"
-            :class="['category-filter', selectedCategory === category.value ? 'active' : '']"
-            @click="selectedCategory = category.value"
-          >
-            {{ category.label }}
-          </div>
-        </div>
-
-        <div class="search-box">
-          <input type="text" placeholder="搜索商品名称或描述..." v-model="searchQuery" />
-          <button><i class="fas fa-search"></i> 搜索</button>
-        </div>
-      </div>
-
-      <!-- 统计信息 -->
-      <div class="stats">
-        共找到 {{ filteredItems.length }} 件商品
-        <span v-if="selectedCategory !== '全部'"
-          >（分类：{{ getCategoryLabel(selectedCategory) }}）</span
-        >
-        <span v-if="searchQuery">（关键词：{{ searchQuery }}）</span>
-      </div>
-
-      <!-- 加载状态 -->
-      <div class="loading" v-if="loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        <p>加载中，请稍候...</p>
-      </div>
-
-      <!-- 错误状态 -->
-      <div class="error" v-else-if="error">
-        <i class="fas fa-exclamation-circle"></i>
-        <p>加载失败: {{ error }}</p>
-        <button @click="fetchItems" class="retry-btn"><i class="fas fa-redo"></i> 重新加载</button>
-      </div>
-
-      <!-- 空状态 -->
-      <div class="empty" v-else-if="filteredItems.length === 0">
-        <i class="fas fa-box-open"></i>
-        <p>暂无符合条件的商品</p>
-        <button @click="goToPost" class="add-btn"><i class="fas fa-plus"></i> 发布商品</button>
-      </div>
-
-      <!-- 商品表格 -->
-      <div class="items-table" v-else>
-        <table>
-          <thead>
-            <tr>
-              <th>商品信息</th>
-              <th>价格</th>
-              <th>分类</th>
-              <th>状态</th>
-              <th>卖家</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in filteredItems"
-              :key="item.id"
-              @click="goToDetail(item.id)"
-              class="item-row"
-            >
-              <td class="item-info">
-                <div class="item-name">{{ item.name }}</div>
-                <div class="item-description">{{ item.description }}</div>
-              </td>
-              <td class="price">{{ formatPrice(item.price) }}</td>
-              <td>
-                <span class="category-tag">{{ getCategoryLabel(item.category) }}</span>
-              </td>
-              <td>
-                <span class="condition-tag">{{
-                  conditions[item.condition] || item.condition
-                }}</span>
-              </td>
-              <td class="seller">
-                {{ item.seller?.username || '未知' }}
-              </td>
-              <td>
-                <div class="actions">
-                  <!-- 查看详情按钮 -->
-                  <button
-                    class="action-btn view-btn"
-                    @click.stop="goToDetail(item.id)"
-                    title="查看详情"
-                  >
-                    <i class="fas fa-eye"></i>
-                  </button>
-
-                  <!-- 如果是自己的商品，显示删除按钮 -->
-                  <button
-                    v-if="isItemOwner(item)"
-                    class="action-btn delete-btn"
-                    @click.stop="deleteItem(item.id, $event)"
-                    title="删除"
-                  >
-                    <i class="fas fa-trash"></i>
-                  </button>
-
-                  <!-- 如果不是自己的商品，显示购买按钮 -->
-                  <button
-                    v-else
-                    class="action-btn buy-btn"
-                    @click.stop="purchaseItem(item.id, $event)"
-                    title="购买"
-                  >
-                    <i class="fas fa-shopping-cart"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</template>
-
+<!-- HomeView.vue -->
 <script setup>
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -372,6 +204,38 @@ const purchaseItem = async (itemId, event) => {
   }
 }
 
+// 🔥 新增：收藏商品功能
+const favoriteItem = async (itemId, event) => {
+  event.stopPropagation()
+
+  try {
+    const token = getAuthToken()
+    if (!token) {
+      throw new Error('未找到认证Token，请重新登录')
+    }
+
+    const response = await fetch(`http://127.0.0.1:8000/api/goods/${itemId}/favorite/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (response.ok) {
+      alert('已添加到收藏！')
+    } else if (response.status === 401) {
+      throw new Error('登录已过期，请重新登录')
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || '收藏失败')
+    }
+  } catch (err) {
+    console.error('收藏商品失败:', err)
+    alert('收藏失败: ' + err.message)
+  }
+}
+
 // 页面加载时获取数据
 onMounted(async () => {
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
@@ -408,13 +272,13 @@ const handleLogout = async () => {
   }
 }
 
-// 导航方法 - 🔥 修复这里的路由路径
+// 导航方法
 const goToMyPage = () => {
-  router.push('/my-page') // 修改为正确的路径
+  router.push('/my')
 }
 
 const goToLogin = () => {
-  router.push('/login')
+  router.push('/')
 }
 
 const goToRegister = () => {
@@ -427,10 +291,10 @@ const goToDetail = (id) => {
 
 const goToPost = () => {
   if (!isAuthenticated.value) {
-    router.push('/login')
+    router.push('/')
     return
   }
-  router.push('/post-item')
+  router.push({ name: 'post-item' })
 }
 
 // 格式化价格
@@ -444,6 +308,184 @@ const getCategoryLabel = (categoryValue) => {
   return category ? category.label : categoryValue
 }
 </script>
+
+<template>
+  <div class="container">
+    <!-- 顶部导航 -->
+    <div class="header">
+      <div class="header-left">
+        <h1><i class="fas fa-store"></i> 校园二手交易平台</h1>
+        <div class="user-info" v-if="currentUser">欢迎，{{ currentUser.username }}！</div>
+      </div>
+      <div class="header-actions">
+        <button class="my-page-btn" @click="goToMyPage" v-if="isAuthenticated">
+          <i class="fas fa-user"></i> 我的页面
+        </button>
+        <button class="add-btn" @click="goToPost" v-if="isAuthenticated">
+          <i class="fas fa-plus"></i> 发布商品
+        </button>
+        <button class="logout-btn" @click="handleLogout" v-if="isAuthenticated">
+          <i class="fas fa-sign-out-alt"></i> 退出
+        </button>
+        <button class="login-btn" @click="goToLogin" v-if="!isAuthenticated">
+          <i class="fas fa-sign-in-alt"></i> 登录
+        </button>
+        <button class="register-btn" @click="goToRegister" v-if="!isAuthenticated">
+          <i class="fas fa-user-plus"></i> 注册
+        </button>
+      </div>
+    </div>
+
+    <!-- 未登录时的欢迎页面 -->
+    <div v-if="!isAuthenticated" class="welcome-section">
+      <div class="welcome-content">
+        <h2>欢迎来到校园二手交易平台</h2>
+        <p>闲置物品 · 循环利用 · 绿色校园</p>
+        <div class="welcome-actions">
+          <button class="btn-primary" @click="goToLogin">
+            <i class="fas fa-sign-in-alt"></i> 立即登录
+          </button>
+          <button class="btn-secondary" @click="goToRegister">
+            <i class="fas fa-user-plus"></i> 注册账号
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已登录用户显示商品列表 -->
+    <div v-else>
+      <!-- 筛选器 -->
+      <div class="filters-section">
+        <div class="filters">
+          <div
+            v-for="category in categories"
+            :key="category.value"
+            :class="['category-filter', selectedCategory === category.value ? 'active' : '']"
+            @click="selectedCategory = category.value"
+          >
+            {{ category.label }}
+          </div>
+        </div>
+
+        <div class="search-box">
+          <input type="text" placeholder="搜索商品名称或描述..." v-model="searchQuery" />
+          <button><i class="fas fa-search"></i> 搜索</button>
+        </div>
+      </div>
+
+      <!-- 统计信息 -->
+      <div class="stats">
+        共找到 {{ filteredItems.length }} 件商品
+        <span v-if="selectedCategory !== '全部'"
+          >（分类：{{ getCategoryLabel(selectedCategory) }}）</span
+        >
+        <span v-if="searchQuery">（关键词：{{ searchQuery }}）</span>
+      </div>
+
+      <!-- 加载状态 -->
+      <div class="loading" v-if="loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>加载中，请稍候...</p>
+      </div>
+
+      <!-- 错误状态 -->
+      <div class="error" v-else-if="error">
+        <i class="fas fa-exclamation-circle"></i>
+        <p>加载失败: {{ error }}</p>
+        <button @click="fetchItems" class="retry-btn"><i class="fas fa-redo"></i> 重新加载</button>
+      </div>
+
+      <!-- 空状态 -->
+      <div class="empty" v-else-if="filteredItems.length === 0">
+        <i class="fas fa-box-open"></i>
+        <p>暂无符合条件的商品</p>
+        <button @click="goToPost" class="add-btn"><i class="fas fa-plus"></i> 发布商品</button>
+      </div>
+
+      <!-- 商品表格 -->
+      <div class="items-table" v-else>
+        <table>
+          <thead>
+            <tr>
+              <th>商品信息</th>
+              <th>价格</th>
+              <th>分类</th>
+              <th>状态</th>
+              <th>卖家</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="item in filteredItems"
+              :key="item.id"
+              @click="goToDetail(item.id)"
+              class="item-row"
+            >
+              <td class="item-info">
+                <div class="item-name">{{ item.name }}</div>
+                <div class="item-description">{{ item.description }}</div>
+              </td>
+              <td class="price">{{ formatPrice(item.price) }}</td>
+              <td>
+                <span class="category-tag">{{ getCategoryLabel(item.category) }}</span>
+              </td>
+              <td>
+                <span class="condition-tag">{{
+                  conditions[item.condition] || item.condition
+                }}</span>
+              </td>
+              <td class="seller">
+                {{ item.seller?.username || '未知' }}
+              </td>
+              <td>
+                <div class="actions">
+                  <!-- 查看详情按钮 -->
+                  <button
+                    class="action-btn view-btn"
+                    @click.stop="goToDetail(item.id)"
+                    title="查看详情"
+                  >
+                    <i class="fas fa-eye"></i>
+                  </button>
+
+                  <!-- 收藏按钮（所有人都可以收藏） -->
+                  <button
+                    class="action-btn favorite-btn"
+                    @click.stop="favoriteItem(item.id, $event)"
+                    title="收藏"
+                  >
+                    <i class="fas fa-heart"></i>
+                  </button>
+
+                  <!-- 如果是自己的商品，显示删除按钮 -->
+                  <button
+                    v-if="isItemOwner(item)"
+                    class="action-btn delete-btn"
+                    @click.stop="deleteItem(item.id, $event)"
+                    title="删除"
+                  >
+                    <i class="fas fa-trash"></i>
+                  </button>
+
+                  <!-- 如果不是自己的商品，显示购买按钮 -->
+                  <button
+                    v-else
+                    class="action-btn buy-btn"
+                    @click.stop="purchaseItem(item.id, $event)"
+                    title="购买"
+                  >
+                    <i class="fas fa-shopping-cart"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .container {
@@ -792,6 +834,9 @@ td {
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .action-btn:hover {
@@ -802,12 +847,16 @@ td {
   background: #3498db;
   color: white;
 }
+.favorite-btn {
+  background: #e74c3c;
+  color: white;
+}
 .buy-btn {
   background: #27ae60;
   color: white;
 }
 .delete-btn {
-  background: #e74c3c;
+  background: #95a5a6;
   color: white;
 }
 
