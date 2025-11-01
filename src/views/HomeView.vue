@@ -204,8 +204,8 @@ const purchaseItem = async (itemId, event) => {
   }
 }
 
-// 🔥 新增：收藏商品功能
-const favoriteItem = async (itemId, event) => {
+// 🔥 修改：收藏商品功能 - 支持切换收藏状态
+const toggleFavorite = async (itemId, event) => {
   event.stopPropagation()
 
   try {
@@ -214,25 +214,99 @@ const favoriteItem = async (itemId, event) => {
       throw new Error('未找到认证Token，请重新登录')
     }
 
-    const response = await fetch(`http://127.0.0.1:8000/api/goods/${itemId}/favorite/`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Token ${token}`,
-        'Content-Type': 'application/json',
-      },
-    })
+    const item = items.value.find((item) => item.id === itemId)
+    if (!item) return
 
-    if (response.ok) {
-      alert('已添加到收藏！')
-    } else if (response.status === 401) {
-      throw new Error('登录已过期，请重新登录')
+    const isCurrentlyFavorited = item.is_favorited
+
+    if (isCurrentlyFavorited) {
+      // 取消收藏
+      const response = await fetch(`http://127.0.0.1:8000/api/goods/${itemId}/favorite/`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        item.is_favorited = false
+        item.favorites_count = Math.max(0, item.favorites_count - 1)
+      } else {
+        throw new Error('取消收藏失败')
+      }
     } else {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || '收藏失败')
+      // 添加收藏
+      const response = await fetch(`http://127.0.0.1:8000/api/goods/${itemId}/favorite/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        item.is_favorited = true
+        item.favorites_count = (item.favorites_count || 0) + 1
+      } else {
+        throw new Error('收藏失败')
+      }
     }
   } catch (err) {
-    console.error('收藏商品失败:', err)
-    alert('收藏失败: ' + err.message)
+    console.error('操作收藏失败:', err)
+    alert('操作失败: ' + err.message)
+  }
+}
+
+// 🔥 新增：点赞功能
+const toggleLike = async (itemId, event) => {
+  event.stopPropagation()
+
+  try {
+    const token = getAuthToken()
+    if (!token) {
+      throw new Error('未找到认证Token，请重新登录')
+    }
+
+    const item = items.value.find((item) => item.id === itemId)
+    if (!item) return
+
+    const isCurrentlyLiked = item.is_liked
+
+    if (isCurrentlyLiked) {
+      // 取消点赞
+      const response = await fetch(`http://127.0.0.1:8000/api/goods/${itemId}/like/`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        item.is_liked = false
+        item.likes_count = Math.max(0, item.likes_count - 1)
+      } else {
+        throw new Error('取消点赞失败')
+      }
+    } else {
+      // 添加点赞
+      const response = await fetch(`http://127.0.0.1:8000/api/goods/${itemId}/like/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        item.is_liked = true
+        item.likes_count = (item.likes_count || 0) + 1
+      } else {
+        throw new Error('点赞失败')
+      }
+    }
+  } catch (err) {
+    console.error('操作点赞失败:', err)
+    alert('操作失败: ' + err.message)
   }
 }
 
@@ -306,6 +380,15 @@ const formatPrice = (price) => {
 const getCategoryLabel = (categoryValue) => {
   const category = categories.find((cat) => cat.value === categoryValue)
   return category ? category.label : categoryValue
+}
+
+// 🔥 新增：格式化数字，超过1000显示k
+const formatCount = (count) => {
+  if (!count) return '0'
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1) + 'k'
+  }
+  return count.toString()
 }
 </script>
 
@@ -411,6 +494,7 @@ const getCategoryLabel = (categoryValue) => {
               <th>价格</th>
               <th>分类</th>
               <th>状态</th>
+              <th>互动数据</th>
               <th>卖家</th>
               <th>操作</th>
             </tr>
@@ -435,6 +519,22 @@ const getCategoryLabel = (categoryValue) => {
                   conditions[item.condition] || item.condition
                 }}</span>
               </td>
+              <td class="interaction-stats">
+                <div class="stats-row">
+                  <span class="stat-item" @click.stop="toggleLike(item.id, $event)">
+                    <i :class="['fas', 'fa-heart', { liked: item.is_liked }]"></i>
+                    {{ formatCount(item.likes_count || 0) }}
+                  </span>
+                  <span class="stat-item" @click.stop="toggleFavorite(item.id, $event)">
+                    <i :class="['fas', 'fa-star', { favorited: item.is_favorited }]"></i>
+                    {{ formatCount(item.favorites_count || 0) }}
+                  </span>
+                  <span class="stat-item">
+                    <i class="fas fa-comment"></i>
+                    {{ formatCount(item.comments_count || 0) }}
+                  </span>
+                </div>
+              </td>
               <td class="seller">
                 {{ item.seller?.username || '未知' }}
               </td>
@@ -452,10 +552,11 @@ const getCategoryLabel = (categoryValue) => {
                   <!-- 收藏按钮（所有人都可以收藏） -->
                   <button
                     class="action-btn favorite-btn"
-                    @click.stop="favoriteItem(item.id, $event)"
-                    title="收藏"
+                    :class="{ active: item.is_favorited }"
+                    @click.stop="toggleFavorite(item.id, $event)"
+                    :title="item.is_favorited ? '取消收藏' : '收藏'"
                   >
-                    <i class="fas fa-heart"></i>
+                    <i class="fas" :class="item.is_favorited ? 'fa-star' : 'fa-star'"></i>
                   </button>
 
                   <!-- 如果是自己的商品，显示删除按钮 -->
@@ -817,6 +918,48 @@ td {
   color: #856404;
 }
 
+/* 🔥 新增：互动数据样式 */
+.interaction-stats {
+  min-width: 120px;
+}
+
+.stats-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #7f8c8d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.stat-item:hover {
+  background: #f8f9fa;
+}
+
+.stat-item .fa-heart.liked {
+  color: #e74c3c;
+}
+
+.stat-item .fa-star.favorited {
+  color: #f39c12;
+}
+
+.stat-item .fa-heart,
+.stat-item .fa-star,
+.stat-item .fa-comment {
+  width: 14px;
+  text-align: center;
+}
+
 .seller {
   color: #7f8c8d;
   font-size: 14px;
@@ -848,8 +991,11 @@ td {
   color: white;
 }
 .favorite-btn {
-  background: #e74c3c;
+  background: #f39c12;
   color: white;
+}
+.favorite-btn.active {
+  background: #e74c3c;
 }
 .buy-btn {
   background: #27ae60;
@@ -946,6 +1092,16 @@ td {
   th,
   td {
     padding: 10px;
+  }
+
+  .interaction-stats {
+    min-width: auto;
+  }
+
+  .stats-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 </style>

@@ -38,7 +38,7 @@ const router = createRouter({
       component: ItemDetailView,
       meta: { requiresAuth: true },
     },
-    // 🔥 新增：我的页面路由
+    // 我的页面路由
     {
       path: '/my',
       name: 'my-page',
