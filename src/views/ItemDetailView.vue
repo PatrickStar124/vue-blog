@@ -4,8 +4,15 @@
     <div class="header">
       <button class="back-btn" @click="goBack"><i class="fas fa-arrow-left"></i> 返回</button>
       <h1>商品详情</h1>
-      <div></div>
-      <!-- 占位 -->
+      <div class="header-actions" v-if="isAuthenticated">
+        <button class="my-page-btn" @click="goToMyPage">
+          <i class="fas fa-user"></i> 我的页面
+        </button>
+        <button class="logout-btn" @click="handleLogout">
+          <i class="fas fa-sign-out-alt"></i> 退出
+        </button>
+      </div>
+      <div v-else></div>
     </div>
 
     <div v-if="loading" class="loading">
@@ -16,7 +23,10 @@
     <div v-else-if="error" class="error">
       <i class="fas fa-exclamation-circle"></i>
       <p>{{ error }}</p>
-      <button @click="goBack" class="retry-btn">返回</button>
+      <div class="error-actions">
+        <button @click="fetchItemDetail" class="retry-btn">重新加载</button>
+        <button @click="goBack" class="back-btn">返回</button>
+      </div>
     </div>
 
     <div v-else-if="item" class="item-detail">
@@ -42,7 +52,7 @@
           </div>
           <div class="meta-item">
             <span class="meta-label">商品状态：</span>
-            <span class="meta-value">{{ conditions[item.condition] || item.condition }}</span>
+            <span class="meta-value">{{ getConditionLabel(item.condition) }}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">位置：</span>
@@ -60,13 +70,19 @@
 
         <div class="item-description">
           <h3>商品描述</h3>
-          <p>{{ item.description }}</p>
+          <p>{{ item.description || '暂无描述' }}</p>
         </div>
 
-        <!-- 购买按钮区域 -->
-        <div class="action-section" v-if="!isItemOwner(item)">
+        <!-- 操作按钮区域 -->
+        <div class="action-section">
+          <!-- 收藏按钮（所有人都可以收藏） -->
+          <button class="favorite-btn" @click="favoriteItem" v-if="isAuthenticated">
+            <i class="fas fa-heart"></i> 收藏
+          </button>
+
+          <!-- 购买按钮（非自己的商品且未售出） -->
           <button
-            v-if="!item.is_sold"
+            v-if="!isItemOwner && !item.is_sold"
             class="purchase-btn"
             @click="handlePurchase"
             :disabled="purchasing"
@@ -74,18 +90,20 @@
             <i class="fas fa-shopping-cart"></i>
             {{ purchasing ? '购买中...' : '立即购买' }}
           </button>
-          <div v-else class="sold-message">
+
+          <!-- 商品所有者操作 -->
+          <div v-if="isItemOwner" class="owner-actions">
+            <button class="edit-btn" @click="editItem"><i class="fas fa-edit"></i> 编辑商品</button>
+            <button class="delete-btn" @click="deleteItem">
+              <i class="fas fa-trash"></i> 删除商品
+            </button>
+          </div>
+
+          <!-- 已售出提示 -->
+          <div v-if="item.is_sold && !isItemOwner" class="sold-message">
             <i class="fas fa-times-circle"></i>
             该商品已售出
           </div>
-        </div>
-
-        <!-- 商品所有者操作 -->
-        <div class="owner-actions" v-if="isItemOwner(item)">
-          <button class="edit-btn" @click="editItem"><i class="fas fa-edit"></i> 编辑商品</button>
-          <button class="delete-btn" @click="deleteItem">
-            <i class="fas fa-trash"></i> 删除商品
-          </button>
         </div>
       </div>
     </div>
@@ -125,15 +143,23 @@ const categories = [
   { value: 'other', label: '📦 其他' },
 ]
 
-// 获取当前用户信息
+// 计算属性
+const isAuthenticated = computed(() => {
+  return localStorage.getItem('isAuthenticated') === 'true'
+})
+
 const currentUser = computed(() => {
   const userData = localStorage.getItem('userInfo')
   return userData ? JSON.parse(userData) : null
 })
 
-// 判断是否是商品所有者
-const isItemOwner = (item) => {
-  return currentUser.value && item.seller && item.seller.id === currentUser.value.id
+const isItemOwner = computed(() => {
+  return currentUser.value && item.value?.seller && item.value.seller.id === currentUser.value.id
+})
+
+// 获取认证Token
+const getAuthToken = () => {
+  return localStorage.getItem('authToken')
 }
 
 // 获取商品详情
@@ -142,7 +168,8 @@ const fetchItemDetail = async () => {
   error.value = ''
 
   try {
-    const token = localStorage.getItem('authToken')
+    const token = getAuthToken()
+
     if (!token) {
       throw new Error('请先登录')
     }
@@ -153,8 +180,17 @@ const fetchItemDetail = async () => {
       },
     })
 
+    // 🔥 关键修改：处理权限错误
+    if (response.status === 403) {
+      throw new Error('您没有权限查看此商品详情')
+    }
+
+    if (response.status === 404) {
+      throw new Error('商品不存在')
+    }
+
     if (!response.ok) {
-      throw new Error('获取商品详情失败')
+      throw new Error(`获取商品详情失败: ${response.status}`)
     }
 
     const data = await response.json()
@@ -166,8 +202,39 @@ const fetchItemDetail = async () => {
   } catch (err) {
     console.error('获取商品详情失败:', err)
     error.value = err.message
+
+    // 处理认证过期
+    if (err.message.includes('登录已过期') || err.message.includes('请先登录')) {
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('isAuthenticated')
+      localStorage.removeItem('userInfo')
+    }
   } finally {
     loading.value = false
+  }
+}
+
+// 收藏商品
+const favoriteItem = async () => {
+  try {
+    const token = getAuthToken()
+    const response = await fetch(`http://127.0.0.1:8000/api/goods/${route.params.id}/favorite/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (response.ok) {
+      alert('收藏成功！')
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || '收藏失败')
+    }
+  } catch (err) {
+    console.error('收藏失败:', err)
+    alert('收藏失败: ' + err.message)
   }
 }
 
@@ -179,11 +246,7 @@ const handlePurchase = async () => {
 
   purchasing.value = true
   try {
-    const token = localStorage.getItem('authToken')
-    if (!token) {
-      throw new Error('请先登录')
-    }
-
+    const token = getAuthToken()
     const response = await fetch(`http://127.0.0.1:8000/api/goods/${route.params.id}/purchase/`, {
       method: 'POST',
       headers: {
@@ -195,7 +258,7 @@ const handlePurchase = async () => {
     const data = await response.json()
 
     if (data.success) {
-      alert('购买成功！商品已添加到您的库存中。')
+      alert('购买成功！')
       // 刷新商品详情
       await fetchItemDetail()
     } else {
@@ -209,18 +272,66 @@ const handlePurchase = async () => {
   }
 }
 
-// 其他方法
-const goBack = () => {
-  router.back()
-}
-
+// 编辑商品
 const editItem = () => {
   alert('编辑功能开发中...')
 }
 
-const deleteItem = () => {
-  if (confirm('确定要删除这个商品吗？')) {
-    alert('删除功能开发中...')
+// 删除商品
+const deleteItem = async () => {
+  if (!confirm('确定要删除这个商品吗？此操作不可恢复。')) {
+    return
+  }
+
+  try {
+    const token = getAuthToken()
+    const response = await fetch(`http://127.0.0.1:8000/api/goods/${route.params.id}/`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+    })
+
+    if (response.ok) {
+      alert('商品删除成功！')
+      router.push('/home')
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.message || '删除失败')
+    }
+  } catch (err) {
+    console.error('删除失败:', err)
+    alert('删除失败: ' + err.message)
+  }
+}
+
+// 工具函数
+const goBack = () => {
+  router.back()
+}
+
+const goToMyPage = () => {
+  router.push('/my')
+}
+
+const handleLogout = async () => {
+  try {
+    const token = getAuthToken()
+    if (token) {
+      await fetch('http://127.0.0.1:8000/api/auth/logout/', {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      })
+    }
+  } catch (error) {
+    console.error('登出失败:', error)
+  } finally {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('userInfo')
+    localStorage.removeItem('isAuthenticated')
+    router.push('/')
   }
 }
 
@@ -245,6 +356,10 @@ const formatDate = (dateString) => {
 const getCategoryLabel = (categoryValue) => {
   const category = categories.find((cat) => cat.value === categoryValue)
   return category ? category.label : categoryValue
+}
+
+const getConditionLabel = (conditionValue) => {
+  return conditions[conditionValue] || conditionValue
 }
 
 onMounted(() => {
@@ -272,8 +387,37 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.back-btn {
+.header-actions {
+  display: flex;
+  gap: 15px;
+}
+
+.my-page-btn {
+  background: #9b59b6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logout-btn {
   background: #95a5a6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-btn {
+  background: #3498db;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -391,7 +535,23 @@ onMounted(() => {
   padding: 20px;
   background: #f8f9fa;
   border-radius: 10px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.favorite-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
 }
 
 .purchase-btn {
@@ -405,6 +565,7 @@ onMounted(() => {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   transition: all 0.3s ease;
 }
@@ -426,12 +587,15 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding: 15px;
+  background: #ecf0f1;
+  border-radius: 8px;
 }
 
 .owner-actions {
   display: flex;
   gap: 15px;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .edit-btn,
@@ -444,6 +608,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
+  flex: 1;
 }
 
 .edit-btn {
@@ -477,6 +642,13 @@ onMounted(() => {
   color: #e74c3c;
 }
 
+.error-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
 .retry-btn {
   background: #3498db;
   color: white;
@@ -484,7 +656,6 @@ onMounted(() => {
   padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
-  margin-top: 15px;
 }
 
 @media (max-width: 768px) {
@@ -504,6 +675,15 @@ onMounted(() => {
     text-align: center;
   }
 
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .header-actions button {
+    width: 100%;
+  }
+
   .item-title {
     font-size: 1.5rem;
   }
@@ -513,6 +693,10 @@ onMounted(() => {
   }
 
   .owner-actions {
+    flex-direction: column;
+  }
+
+  .error-actions {
     flex-direction: column;
   }
 }
