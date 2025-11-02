@@ -4,21 +4,35 @@
     <!-- 头部导航 -->
     <div class="header-nav">
       <button class="nav-btn back-btn" @click="goBack">
-        <i class="fas fa-arrow-left"></i>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+        </svg>
         <span>返回首页</span>
       </button>
       <h1 class="page-title">商品详情</h1>
       <div class="nav-actions">
         <button v-if="isAuthenticated" class="nav-btn my-page-btn" @click="goToMyPage">
-          <i class="fas fa-user"></i>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
+            />
+          </svg>
           <span>我的页面</span>
         </button>
         <button v-if="isAuthenticated" class="nav-btn logout-btn" @click="handleLogout">
-          <i class="fas fa-sign-out-alt"></i>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"
+            />
+          </svg>
           <span>退出</span>
         </button>
         <button v-else class="nav-btn login-btn" @click="goToLogin">
-          <i class="fas fa-sign-in-alt"></i>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M10 20H5v2h5v2l3-3-3-3v2zm4 0v2h5v-2h-5zM12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0-2c0 .55.45 1 1 1s1-.45 1-1-.45-1-1-1-1 .45-1 1zm0 4c-1.66 0-3 1.34-3 3v3h6v-3c0-1.66-1.34-3-3-3z"
+            />
+          </svg>
           <span>登录</span>
         </button>
       </div>
@@ -37,10 +51,18 @@
       <p>{{ error }}</p>
       <div class="error-actions">
         <button @click="fetchItemDetail" class="action-btn primary">
-          <i class="fas fa-redo"></i> 重新加载
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+            />
+          </svg>
+          重新加载
         </button>
         <button @click="goBack" class="action-btn secondary">
-          <i class="fas fa-arrow-left"></i> 返回首页
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+          </svg>
+          返回首页
         </button>
       </div>
     </div>
@@ -60,7 +82,13 @@
             />
             <div class="image-overlay">
               <div class="status-badge" :class="item.is_sold ? 'sold' : 'available'">
-                <i :class="item.is_sold ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    v-if="item.is_sold"
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                  />
+                  <path v-else d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
                 {{ item.is_sold ? '已售出' : '出售中' }}
               </div>
             </div>
@@ -83,9 +111,14 @@
           <!-- 互动数据 -->
           <div class="interaction-section">
             <div class="interaction-stats">
+              <!-- 点赞 -->
               <div class="interaction-item" @click="toggleLike" :class="{ active: item.is_liked }">
                 <div class="interaction-icon">
-                  <i class="fas fa-heart"></i>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                    />
+                  </svg>
                 </div>
                 <div class="interaction-info">
                   <span class="count">{{ item.likes_count || 0 }}</span>
@@ -93,13 +126,18 @@
                 </div>
               </div>
 
+              <!-- 收藏 -->
               <div
                 class="interaction-item"
                 @click="toggleFavorite"
                 :class="{ active: item.is_favorited }"
               >
                 <div class="interaction-icon">
-                  <i class="fas fa-star"></i>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                    />
+                  </svg>
                 </div>
                 <div class="interaction-info">
                   <span class="count">{{ item.favorites_count || 0 }}</span>
@@ -107,9 +145,12 @@
                 </div>
               </div>
 
+              <!-- 评论 -->
               <div class="interaction-item">
                 <div class="interaction-icon">
-                  <i class="fas fa-comment"></i>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                  </svg>
                 </div>
                 <div class="interaction-info">
                   <span class="count">{{ item.comments_count || 0 }}</span>
@@ -117,9 +158,14 @@
                 </div>
               </div>
 
+              <!-- 浏览 -->
               <div class="interaction-item">
                 <div class="interaction-icon">
-                  <i class="fas fa-eye"></i>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+                    />
+                  </svg>
                 </div>
                 <div class="interaction-info">
                   <span class="count">{{ item.views_count || 0 }}</span>
@@ -134,7 +180,11 @@
             <!-- 基本信息卡片 -->
             <div class="info-card">
               <div class="card-header">
-                <i class="fas fa-info-circle"></i>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                  />
+                </svg>
                 <h3>商品信息</h3>
               </div>
               <div class="card-content">
@@ -154,7 +204,11 @@
                   <div class="info-item">
                     <span class="info-label">卖家</span>
                     <span class="info-value seller-info">
-                      <i class="fas fa-user"></i>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
+                        />
+                      </svg>
                       {{ item.seller?.username || '未知用户' }}
                     </span>
                   </div>
@@ -173,7 +227,11 @@
             <!-- 描述卡片 -->
             <div class="info-card">
               <div class="card-header">
-                <i class="fas fa-file-alt"></i>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"
+                  />
+                </svg>
                 <h3>商品描述</h3>
               </div>
               <div class="card-content">
@@ -194,26 +252,42 @@
                 @click="handlePurchase"
                 :disabled="purchasing"
               >
-                <i class="fas fa-shopping-cart"></i>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"
+                  />
+                </svg>
                 {{ purchasing ? '购买中...' : '立即购买' }}
               </button>
 
               <button class="action-btn secondary" @click="showMessageModal = true">
-                <i class="fas fa-envelope"></i>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+                  />
+                </svg>
                 联系卖家
               </button>
 
               <button
-                class="action-btn secondary"
+                class="action-btn secondary favorite-btn"
                 :class="{ active: item.is_favorited }"
                 @click="toggleFavorite"
               >
-                <i class="fas fa-star"></i>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                  />
+                </svg>
                 {{ item.is_favorited ? '已收藏' : '收藏' }}
               </button>
 
               <div v-if="item.is_sold" class="sold-notice">
-                <i class="fas fa-times-circle"></i>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                  />
+                </svg>
                 <span>该商品已售出</span>
               </div>
             </div>
@@ -221,17 +295,27 @@
             <!-- 卖家操作 -->
             <div v-if="isItemOwner" class="action-buttons owner-actions">
               <button class="action-btn primary large" @click="editItem">
-                <i class="fas fa-edit"></i>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                  />
+                </svg>
                 编辑商品
               </button>
 
               <button class="action-btn secondary" @click="markAsSold" v-if="!item.is_sold">
-                <i class="fas fa-check-circle"></i>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                </svg>
                 标记售出
               </button>
 
               <button class="action-btn danger" @click="deleteItem">
-                <i class="fas fa-trash"></i>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                  />
+                </svg>
                 删除商品
               </button>
             </div>
@@ -243,7 +327,9 @@
       <div class="comments-section">
         <div class="section-header">
           <div class="section-title">
-            <i class="fas fa-comments"></i>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+            </svg>
             <h2>商品评论</h2>
             <span class="comment-count">({{ comments.length }})</span>
           </div>
@@ -252,7 +338,9 @@
             @click="showCommentModal = true"
             v-if="isAuthenticated && !isItemOwner"
           >
-            <i class="fas fa-plus"></i>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            </svg>
             添加评论
           </button>
         </div>
@@ -266,7 +354,11 @@
 
           <div v-else-if="comments.length === 0" class="no-comments">
             <div class="empty-state">
-              <i class="fas fa-comment-slash"></i>
+              <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"
+                />
+              </svg>
               <h3>暂无评论</h3>
               <p>成为第一个评论的人吧！</p>
               <button
@@ -274,7 +366,9 @@
                 class="action-btn primary"
                 @click="showCommentModal = true"
               >
-                <i class="fas fa-plus"></i>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </svg>
                 添加第一条评论
               </button>
             </div>
@@ -284,18 +378,29 @@
             <div v-for="comment in comments" :key="comment.id" class="comment-card">
               <div class="comment-header">
                 <div class="user-avatar">
-                  <i class="fas fa-user-circle"></i>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
+                    />
+                  </svg>
                 </div>
                 <div class="user-info">
                   <span class="username">{{ comment.user?.username || '匿名用户' }}</span>
                   <div class="comment-meta">
                     <div class="rating-stars">
-                      <i
+                      <svg
                         v-for="star in 5"
                         :key="star"
-                        class="fas fa-star"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
                         :class="{ active: star <= (comment.rating || 5) }"
-                      ></i>
+                      >
+                        <path
+                          d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                        />
+                      </svg>
                     </div>
                     <span class="comment-date">{{ formatDate(comment.created_at) }}</span>
                   </div>
@@ -307,7 +412,11 @@
                     class="icon-btn danger"
                     title="删除评论"
                   >
-                    <i class="fas fa-trash"></i>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path
+                        d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                      />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -326,7 +435,11 @@
         <div class="modal-header">
           <h3>编辑商品信息</h3>
           <button class="icon-btn close-btn" @click="showEditModal = false">
-            <i class="fas fa-times"></i>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
           </button>
         </div>
         <div class="modal-body">
@@ -426,7 +539,11 @@
             :disabled="!canSubmitEdit || editing"
             type="button"
           >
-            <i class="fas fa-save"></i>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"
+              />
+            </svg>
             {{ editing ? '保存中...' : '保存修改' }}
           </button>
         </div>
@@ -439,20 +556,31 @@
         <div class="modal-header">
           <h3>添加评论</h3>
           <button class="icon-btn close-btn" @click="showCommentModal = false">
-            <i class="fas fa-times"></i>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="rating-input">
             <label class="form-label">评分：</label>
             <div class="stars">
-              <i
+              <svg
                 v-for="star in 5"
                 :key="star"
-                class="fas fa-star"
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="currentColor"
                 :class="{ active: star <= newComment.rating }"
                 @click="newComment.rating = star"
-              ></i>
+              >
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                />
+              </svg>
             </div>
           </div>
           <div class="comment-input">
@@ -482,7 +610,11 @@
         <div class="modal-header">
           <h3>联系卖家</h3>
           <button class="icon-btn close-btn" @click="showMessageModal = false">
-            <i class="fas fa-times"></i>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
           </button>
         </div>
         <div class="modal-body">
@@ -1097,7 +1229,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 完整样式代码较长，这里提供关键样式 */
+/* 完整样式代码 */
 .item-detail-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -1289,14 +1421,9 @@ onMounted(() => {
   border-color: currentColor;
 }
 
-.interaction-item.like-item.active {
-  background: linear-gradient(135deg, #fff5f5, #fed7d7);
-  color: #e53e3e;
-}
-
-.interaction-item.favorite-item.active {
-  background: linear-gradient(135deg, #fffaf0, #feebc8);
-  color: #dd6b20;
+.interaction-item.active .interaction-icon {
+  background: currentColor;
+  color: white;
 }
 
 .interaction-icon {
@@ -1305,14 +1432,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: currentColor;
+  background: #e2e8f0;
   border-radius: 12px;
+  color: #4a5568;
   transition: all 0.3s ease;
-}
-
-.interaction-icon i {
-  color: white;
-  font-size: 22px;
 }
 
 .interaction-info {
@@ -1469,6 +1592,12 @@ onMounted(() => {
   transform: none;
 }
 
+.favorite-btn.active {
+  background: #fff3cd;
+  border-color: #ffc107;
+  color: #856404;
+}
+
 .sold-notice {
   display: flex;
   align-items: center;
@@ -1531,8 +1660,7 @@ onMounted(() => {
   gap: 15px;
 }
 
-.empty-state i {
-  font-size: 4rem;
+.empty-state svg {
   color: #cbd5e0;
   margin-bottom: 15px;
 }
@@ -1574,8 +1702,7 @@ onMounted(() => {
   flex: 1;
 }
 
-.user-avatar i {
-  font-size: 3rem;
+.user-avatar svg {
   color: #9b59b6;
 }
 
@@ -1602,12 +1729,11 @@ onMounted(() => {
   gap: 2px;
 }
 
-.rating-stars .fa-star {
+.rating-stars svg {
   color: #e2e8f0;
-  font-size: 14px;
 }
 
-.rating-stars .fa-star.active {
+.rating-stars svg.active {
   color: #f6ad55;
 }
 
@@ -1766,18 +1892,17 @@ onMounted(() => {
   margin-top: 8px;
 }
 
-.stars .fa-star {
+.stars svg {
   color: #e2e8f0;
   cursor: pointer;
-  font-size: 28px;
   transition: all 0.2s ease;
 }
 
-.stars .fa-star.active {
+.stars svg.active {
   color: #f6ad55;
 }
 
-.stars .fa-star:hover {
+.stars svg:hover {
   transform: scale(1.1);
 }
 
