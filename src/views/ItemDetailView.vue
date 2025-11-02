@@ -1,204 +1,450 @@
 <!-- ItemDetailView.vue -->
 <template>
   <div class="item-detail-container">
-    <div class="header">
-      <button class="back-btn" @click="goBack"><i class="fas fa-arrow-left"></i> 返回</button>
-      <h1>商品详情</h1>
-      <div class="header-actions" v-if="isAuthenticated">
-        <button class="my-page-btn" @click="goToMyPage">
-          <i class="fas fa-user"></i> 我的页面
+    <!-- 头部导航 -->
+    <div class="header-nav">
+      <button class="nav-btn back-btn" @click="goBack">
+        <i class="fas fa-arrow-left"></i>
+        <span>返回首页</span>
+      </button>
+      <h1 class="page-title">商品详情</h1>
+      <div class="nav-actions">
+        <button v-if="isAuthenticated" class="nav-btn my-page-btn" @click="goToMyPage">
+          <i class="fas fa-user"></i>
+          <span>我的页面</span>
         </button>
-        <button class="logout-btn" @click="handleLogout">
-          <i class="fas fa-sign-out-alt"></i> 退出
+        <button v-if="isAuthenticated" class="nav-btn logout-btn" @click="handleLogout">
+          <i class="fas fa-sign-out-alt"></i>
+          <span>退出</span>
+        </button>
+        <button v-else class="nav-btn login-btn" @click="goToLogin">
+          <i class="fas fa-sign-in-alt"></i>
+          <span>登录</span>
         </button>
       </div>
-      <div v-else></div>
     </div>
 
-    <div v-if="loading" class="loading">
-      <i class="fas fa-spinner fa-spin"></i>
-      <p>加载中...</p>
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>正在加载商品信息...</p>
     </div>
 
-    <div v-else-if="error" class="error">
-      <i class="fas fa-exclamation-circle"></i>
+    <!-- 错误状态 -->
+    <div v-else-if="error" class="error-state">
+      <div class="error-icon">⚠️</div>
+      <h3>加载失败</h3>
       <p>{{ error }}</p>
       <div class="error-actions">
-        <button @click="fetchItemDetail" class="retry-btn">重新加载</button>
-        <button @click="goBack" class="back-btn">返回</button>
+        <button @click="fetchItemDetail" class="action-btn primary">
+          <i class="fas fa-redo"></i> 重新加载
+        </button>
+        <button @click="goBack" class="action-btn secondary">
+          <i class="fas fa-arrow-left"></i> 返回首页
+        </button>
       </div>
     </div>
 
-    <div v-else-if="item" class="item-detail">
-      <!-- 商品基本信息 -->
-      <div class="item-main">
-        <div class="item-images">
-          <img
-            :src="item.image || '/api/placeholder/400x300'"
-            :alt="item.name"
-            class="main-image"
-          />
+    <!-- 商品详情内容 -->
+    <div v-else-if="item" class="item-detail-content">
+      <!-- 商品主区域 -->
+      <div class="item-main-section">
+        <!-- 左侧图片区域 -->
+        <div class="image-section">
+          <div class="image-container">
+            <img
+              :src="getImageUrl(item.image)"
+              :alt="item.name"
+              class="main-image"
+              @error="handleImageError"
+            />
+            <div class="image-overlay">
+              <div class="status-badge" :class="item.is_sold ? 'sold' : 'available'">
+                <i :class="item.is_sold ? 'fas fa-times-circle' : 'fas fa-check-circle'"></i>
+                {{ item.is_sold ? '已售出' : '出售中' }}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="item-info">
-          <h2 class="item-title">{{ item.name }}</h2>
-
-          <!-- 出售状态 -->
-          <div class="item-status">
-            <span v-if="item.is_sold" class="status-badge sold">已售出</span>
-            <span v-else class="status-badge available">出售中</span>
-          </div>
-
-          <div class="item-price">¥{{ formatPrice(item.price) }}</div>
-
-          <!-- 🔥 新增：互动数据 -->
-          <div class="interaction-stats">
-            <div class="stat-item" @click="toggleLike" :class="{ active: item.is_liked }">
-              <i class="fas fa-heart"></i>
-              <span>{{ item.likes_count || 0 }} 点赞</span>
-            </div>
-            <div class="stat-item" @click="toggleFavorite" :class="{ active: item.is_favorited }">
-              <i class="fas fa-star"></i>
-              <span>{{ item.favorites_count || 0 }} 收藏</span>
-            </div>
-            <div class="stat-item">
-              <i class="fas fa-comment"></i>
-              <span>{{ item.comments_count || 0 }} 评论</span>
+        <!-- 右侧信息区域 -->
+        <div class="info-section">
+          <!-- 商品标题和价格 -->
+          <div class="item-header">
+            <h1 class="item-title">{{ item.name }}</h1>
+            <div class="price-section">
+              <span class="current-price">¥{{ formatPrice(item.price) }}</span>
+              <span v-if="item.original_price" class="original-price">
+                原价: ¥{{ formatPrice(item.original_price) }}
+              </span>
             </div>
           </div>
 
-          <div class="item-meta">
-            <div class="meta-item">
-              <span class="meta-label">分类：</span>
-              <span class="meta-value">{{ getCategoryLabel(item.category) }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">商品状态：</span>
-              <span class="meta-value">{{ getConditionLabel(item.condition) }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">位置：</span>
-              <span class="meta-value">{{ item.location || '未填写' }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">卖家：</span>
-              <span class="meta-value">{{ item.seller?.username || '未知' }}</span>
-            </div>
-            <div v-if="item.is_sold" class="meta-item">
-              <span class="meta-label">售出时间：</span>
-              <span class="meta-value">{{ formatDate(item.sold_at) }}</span>
+          <!-- 互动数据 -->
+          <div class="interaction-section">
+            <div class="interaction-stats">
+              <div class="interaction-item" @click="toggleLike" :class="{ active: item.is_liked }">
+                <div class="interaction-icon">
+                  <i class="fas fa-heart"></i>
+                </div>
+                <div class="interaction-info">
+                  <span class="count">{{ item.likes_count || 0 }}</span>
+                  <span class="label">点赞</span>
+                </div>
+              </div>
+
+              <div
+                class="interaction-item"
+                @click="toggleFavorite"
+                :class="{ active: item.is_favorited }"
+              >
+                <div class="interaction-icon">
+                  <i class="fas fa-star"></i>
+                </div>
+                <div class="interaction-info">
+                  <span class="count">{{ item.favorites_count || 0 }}</span>
+                  <span class="label">收藏</span>
+                </div>
+              </div>
+
+              <div class="interaction-item">
+                <div class="interaction-icon">
+                  <i class="fas fa-comment"></i>
+                </div>
+                <div class="interaction-info">
+                  <span class="count">{{ item.comments_count || 0 }}</span>
+                  <span class="label">评论</span>
+                </div>
+              </div>
+
+              <div class="interaction-item">
+                <div class="interaction-icon">
+                  <i class="fas fa-eye"></i>
+                </div>
+                <div class="interaction-info">
+                  <span class="count">{{ item.views_count || 0 }}</span>
+                  <span class="label">浏览</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="item-description">
-            <h3>商品描述</h3>
-            <p>{{ item.description || '暂无描述' }}</p>
+          <!-- 商品信息卡片 -->
+          <div class="info-cards">
+            <!-- 基本信息卡片 -->
+            <div class="info-card">
+              <div class="card-header">
+                <i class="fas fa-info-circle"></i>
+                <h3>商品信息</h3>
+              </div>
+              <div class="card-content">
+                <div class="info-grid">
+                  <div class="info-item">
+                    <span class="info-label">分类</span>
+                    <span class="info-value">{{ getCategoryLabel(item.category) }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">商品状态</span>
+                    <span class="info-value">{{ getConditionLabel(item.condition) }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">位置</span>
+                    <span class="info-value">{{ item.location || '未填写' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">卖家</span>
+                    <span class="info-value seller-info">
+                      <i class="fas fa-user"></i>
+                      {{ item.seller?.username || '未知用户' }}
+                    </span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">发布时间</span>
+                    <span class="info-value">{{ formatDate(item.created_at) }}</span>
+                  </div>
+                  <div v-if="item.is_sold" class="info-item">
+                    <span class="info-label">售出时间</span>
+                    <span class="info-value">{{ formatDate(item.sold_at) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 描述卡片 -->
+            <div class="info-card">
+              <div class="card-header">
+                <i class="fas fa-file-alt"></i>
+                <h3>商品描述</h3>
+              </div>
+              <div class="card-content">
+                <div class="description-content">
+                  <p>{{ item.description || '该商品暂无详细描述' }}</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 操作按钮区域 -->
           <div class="action-section">
-            <!-- 购买按钮（非自己的商品且未售出） -->
-            <button
-              v-if="!isItemOwner && !item.is_sold"
-              class="purchase-btn"
-              @click="handlePurchase"
-              :disabled="purchasing"
-            >
-              <i class="fas fa-shopping-cart"></i>
-              {{ purchasing ? '购买中...' : '立即购买' }}
-            </button>
-
-            <!-- 留言按钮（非自己的商品） -->
-            <button v-if="!isItemOwner" class="message-btn" @click="showMessageModal = true">
-              <i class="fas fa-envelope"></i> 联系卖家
-            </button>
-
-            <!-- 商品所有者操作 -->
-            <div v-if="isItemOwner" class="owner-actions">
-              <button class="edit-btn" @click="editItem">
-                <i class="fas fa-edit"></i> 编辑商品
+            <!-- 买家操作 -->
+            <div v-if="!isItemOwner" class="action-buttons">
+              <button
+                v-if="!item.is_sold"
+                class="action-btn primary large"
+                @click="handlePurchase"
+                :disabled="purchasing"
+              >
+                <i class="fas fa-shopping-cart"></i>
+                {{ purchasing ? '购买中...' : '立即购买' }}
               </button>
-              <button class="delete-btn" @click="deleteItem">
-                <i class="fas fa-trash"></i> 删除商品
+
+              <button class="action-btn secondary" @click="showMessageModal = true">
+                <i class="fas fa-envelope"></i>
+                联系卖家
               </button>
+
+              <button
+                class="action-btn secondary"
+                :class="{ active: item.is_favorited }"
+                @click="toggleFavorite"
+              >
+                <i class="fas fa-star"></i>
+                {{ item.is_favorited ? '已收藏' : '收藏' }}
+              </button>
+
+              <div v-if="item.is_sold" class="sold-notice">
+                <i class="fas fa-times-circle"></i>
+                <span>该商品已售出</span>
+              </div>
             </div>
 
-            <!-- 已售出提示 -->
-            <div v-if="item.is_sold && !isItemOwner" class="sold-message">
-              <i class="fas fa-times-circle"></i>
-              该商品已售出
+            <!-- 卖家操作 -->
+            <div v-if="isItemOwner" class="action-buttons owner-actions">
+              <button class="action-btn primary large" @click="editItem">
+                <i class="fas fa-edit"></i>
+                编辑商品
+              </button>
+
+              <button class="action-btn secondary" @click="markAsSold" v-if="!item.is_sold">
+                <i class="fas fa-check-circle"></i>
+                标记售出
+              </button>
+
+              <button class="action-btn danger" @click="deleteItem">
+                <i class="fas fa-trash"></i>
+                删除商品
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 🔥 新增：评论区域 -->
+      <!-- 评论区域 -->
       <div class="comments-section">
         <div class="section-header">
-          <h3>商品评论 ({{ comments.length }})</h3>
-          <button class="add-comment-btn" @click="showCommentModal = true" v-if="!isItemOwner">
-            <i class="fas fa-plus"></i> 添加评论
+          <div class="section-title">
+            <i class="fas fa-comments"></i>
+            <h2>商品评论</h2>
+            <span class="comment-count">({{ comments.length }})</span>
+          </div>
+          <button
+            class="action-btn primary"
+            @click="showCommentModal = true"
+            v-if="isAuthenticated && !isItemOwner"
+          >
+            <i class="fas fa-plus"></i>
+            添加评论
           </button>
         </div>
 
-        <div v-if="commentsLoading" class="loading-comments">
-          <i class="fas fa-spinner fa-spin"></i>
-          <p>加载评论中...</p>
-        </div>
+        <!-- 评论内容 -->
+        <div class="comments-content">
+          <div v-if="commentsLoading" class="loading-comments">
+            <div class="spinner small"></div>
+            <p>加载评论中...</p>
+          </div>
 
-        <div v-else-if="comments.length === 0" class="no-comments">
-          <i class="fas fa-comment-slash"></i>
-          <p>暂无评论</p>
-          <p class="hint-text">成为第一个评论的人吧！</p>
-        </div>
+          <div v-else-if="comments.length === 0" class="no-comments">
+            <div class="empty-state">
+              <i class="fas fa-comment-slash"></i>
+              <h3>暂无评论</h3>
+              <p>成为第一个评论的人吧！</p>
+              <button
+                v-if="isAuthenticated && !isItemOwner"
+                class="action-btn primary"
+                @click="showCommentModal = true"
+              >
+                <i class="fas fa-plus"></i>
+                添加第一条评论
+              </button>
+            </div>
+          </div>
 
-        <div v-else class="comments-list">
-          <div v-for="comment in comments" :key="comment.id" class="comment-item">
-            <div class="comment-header">
-              <div class="user-info">
-                <i class="fas fa-user-circle"></i>
-                <span class="username">{{ comment.user?.username || '匿名用户' }}</span>
-                <div class="rating">
-                  <i
-                    v-for="star in 5"
-                    :key="star"
-                    class="fas fa-star"
-                    :class="{ active: star <= comment.rating }"
-                  ></i>
+          <div v-else class="comments-list">
+            <div v-for="comment in comments" :key="comment.id" class="comment-card">
+              <div class="comment-header">
+                <div class="user-avatar">
+                  <i class="fas fa-user-circle"></i>
+                </div>
+                <div class="user-info">
+                  <span class="username">{{ comment.user?.username || '匿名用户' }}</span>
+                  <div class="comment-meta">
+                    <div class="rating-stars">
+                      <i
+                        v-for="star in 5"
+                        :key="star"
+                        class="fas fa-star"
+                        :class="{ active: star <= (comment.rating || 5) }"
+                      ></i>
+                    </div>
+                    <span class="comment-date">{{ formatDate(comment.created_at) }}</span>
+                  </div>
+                </div>
+                <div class="comment-actions">
+                  <button
+                    v-if="comment.user?.id === currentUser?.id"
+                    @click="deleteComment(comment.id)"
+                    class="icon-btn danger"
+                    title="删除评论"
+                  >
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </div>
               </div>
-              <div class="comment-actions">
-                <span class="comment-date">{{ formatDate(comment.created_at) }}</span>
-                <button
-                  v-if="comment.user?.id === currentUser?.id"
-                  @click="deleteComment(comment.id)"
-                  class="delete-comment-btn"
-                  title="删除评论"
-                >
-                  <i class="fas fa-trash"></i>
-                </button>
+              <div class="comment-content">
+                {{ comment.content }}
               </div>
-            </div>
-            <div class="comment-content">
-              {{ comment.content }}
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 🔥 新增：评论模态框 -->
+    <!-- 编辑商品模态框 -->
+    <div v-if="showEditModal" class="modal-overlay" @click="showEditModal = false">
+      <div class="modal-content large" @click.stop>
+        <div class="modal-header">
+          <h3>编辑商品信息</h3>
+          <button class="icon-btn close-btn" @click="showEditModal = false">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="submitEdit" class="edit-form">
+            <div class="form-group">
+              <label for="itemName" class="form-label">商品名称 *</label>
+              <input
+                id="itemName"
+                type="text"
+                v-model="editForm.name"
+                placeholder="请输入商品名称"
+                class="form-input"
+                required
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="itemPrice" class="form-label">价格 (元) *</label>
+                <input
+                  id="itemPrice"
+                  type="number"
+                  step="0.01"
+                  v-model="editForm.price"
+                  placeholder="0.00"
+                  class="form-input"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="itemCategory" class="form-label">分类 *</label>
+                <select id="itemCategory" v-model="editForm.category" class="form-select" required>
+                  <option value="">请选择分类</option>
+                  <option
+                    v-for="category in categories"
+                    :key="category.value"
+                    :value="category.value"
+                  >
+                    {{ category.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="itemCondition" class="form-label">商品状态 *</label>
+                <select
+                  id="itemCondition"
+                  v-model="editForm.condition"
+                  class="form-select"
+                  required
+                >
+                  <option value="">请选择状态</option>
+                  <option value="new">🆕 全新</option>
+                  <option value="like_new">✨ 几乎全新</option>
+                  <option value="good">👍 良好</option>
+                  <option value="fair">✅ 一般</option>
+                  <option value="needs_repair">🔧 需维修</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="itemLocation" class="form-label">位置</label>
+                <input
+                  id="itemLocation"
+                  type="text"
+                  v-model="editForm.location"
+                  placeholder="例如：教学楼A区"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="itemDescription" class="form-label">商品描述</label>
+              <textarea
+                id="itemDescription"
+                v-model="editForm.description"
+                placeholder="请详细描述您的商品..."
+                rows="4"
+                maxlength="1000"
+                class="form-textarea"
+              ></textarea>
+              <div class="char-count">{{ editForm.description.length }}/1000</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="action-btn secondary" @click="showEditModal = false" type="button">
+            取消
+          </button>
+          <button
+            class="action-btn primary"
+            @click="submitEdit"
+            :disabled="!canSubmitEdit || editing"
+            type="button"
+          >
+            <i class="fas fa-save"></i>
+            {{ editing ? '保存中...' : '保存修改' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 评论模态框 -->
     <div v-if="showCommentModal" class="modal-overlay" @click="showCommentModal = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>添加评论</h3>
-          <button class="close-btn" @click="showCommentModal = false">
+          <button class="icon-btn close-btn" @click="showCommentModal = false">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="rating-input">
-            <label>评分：</label>
+            <label class="form-label">评分：</label>
             <div class="stars">
               <i
                 v-for="star in 5"
@@ -210,49 +456,55 @@
             </div>
           </div>
           <div class="comment-input">
-            <label>评论内容：</label>
+            <label class="form-label">评论内容：</label>
             <textarea
               v-model="newComment.content"
               placeholder="请输入您的评论..."
               rows="4"
               maxlength="500"
+              class="form-textarea"
             ></textarea>
             <div class="char-count">{{ newComment.content.length }}/500</div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="cancel-btn" @click="showCommentModal = false">取消</button>
-          <button class="submit-btn" @click="submitComment" :disabled="!canSubmitComment">
+          <button class="action-btn secondary" @click="showCommentModal = false">取消</button>
+          <button class="action-btn primary" @click="submitComment" :disabled="!canSubmitComment">
             提交评论
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 🔥 新增：留言模态框 -->
+    <!-- 留言模态框 -->
     <div v-if="showMessageModal" class="modal-overlay" @click="showMessageModal = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>联系卖家</h3>
-          <button class="close-btn" @click="showMessageModal = false">
+          <button class="icon-btn close-btn" @click="showMessageModal = false">
             <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="modal-body">
           <div class="message-input">
-            <label>留言内容：</label>
+            <label class="form-label">留言内容：</label>
             <textarea
               v-model="newMessage.content"
               placeholder="请输入您想对卖家说的话..."
               rows="4"
               maxlength="500"
+              class="form-textarea"
             ></textarea>
             <div class="char-count">{{ newMessage.content.length }}/500</div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="cancel-btn" @click="showMessageModal = false">取消</button>
-          <button class="submit-btn" @click="submitMessage" :disabled="!newMessage.content.trim()">
+          <button class="action-btn secondary" @click="showMessageModal = false">取消</button>
+          <button
+            class="action-btn primary"
+            @click="submitMessage"
+            :disabled="!newMessage.content.trim()"
+          >
             发送留言
           </button>
         </div>
@@ -272,8 +524,9 @@ const item = ref(null)
 const loading = ref(false)
 const error = ref('')
 const purchasing = ref(false)
+const editing = ref(false)
 
-// 🔥 新增：评论相关数据
+// 评论相关数据
 const comments = ref([])
 const commentsLoading = ref(false)
 const showCommentModal = ref(false)
@@ -282,10 +535,22 @@ const newComment = ref({
   content: '',
 })
 
-// 🔥 新增：留言相关数据
+// 留言相关数据
 const showMessageModal = ref(false)
 const newMessage = ref({
   content: '',
+})
+
+// 编辑相关数据
+const showEditModal = ref(false)
+const editForm = ref({
+  name: '',
+  price: '',
+  category: '',
+  condition: '',
+  location: '',
+  description: '',
+  image: '',
 })
 
 // 商品状态选项
@@ -299,7 +564,6 @@ const conditions = {
 
 // 分类选项
 const categories = [
-  { value: '全部', label: '全部' },
   { value: 'electronics', label: '📱 电子产品' },
   { value: 'clothing', label: '👕 服装鞋帽' },
   { value: 'books', label: '📚 图书文具' },
@@ -327,9 +591,25 @@ const canSubmitComment = computed(() => {
   return newComment.value.rating > 0 && newComment.value.content.trim().length > 0
 })
 
+const canSubmitEdit = computed(() => {
+  return (
+    editForm.value.name &&
+    editForm.value.price &&
+    editForm.value.category &&
+    editForm.value.condition
+  )
+})
+
 // 获取认证Token
 const getAuthToken = () => {
   return localStorage.getItem('authToken')
+}
+
+// 获取图片URL
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '/api/placeholder/500x400'
+  if (imagePath.startsWith('http')) return imagePath
+  return `http://127.0.0.1:8000${imagePath}`
 }
 
 // 获取商品详情
@@ -363,13 +643,21 @@ const fetchItemDetail = async () => {
     }
 
     const data = await response.json()
-    if (data.success) {
+    console.log('商品详情数据:', data)
+
+    // 适配不同的数据格式
+    if (data.success && data.goods) {
       item.value = data.goods
-      // 加载评论
-      await fetchComments()
+    } else if (data.item) {
+      item.value = data.item
     } else {
-      throw new Error(data.message || '获取商品详情失败')
+      item.value = data
     }
+
+    // 初始化编辑表单
+    initEditForm()
+    // 加载评论
+    await fetchComments()
   } catch (err) {
     console.error('获取商品详情失败:', err)
     error.value = err.message
@@ -384,7 +672,22 @@ const fetchItemDetail = async () => {
   }
 }
 
-// 🔥 新增：获取评论
+// 初始化编辑表单
+const initEditForm = () => {
+  if (item.value) {
+    editForm.value = {
+      name: item.value.name || '',
+      price: item.value.price || '',
+      category: item.value.category || '',
+      condition: item.value.condition || '',
+      location: item.value.location || '',
+      description: item.value.description || '',
+      image: item.value.image || '',
+    }
+  }
+}
+
+// 获取评论
 const fetchComments = async () => {
   if (!item.value) return
 
@@ -399,8 +702,12 @@ const fetchComments = async () => {
 
     if (response.ok) {
       const data = await response.json()
+      console.log('评论数据:', data)
+
       if (data.success) {
-        comments.value = data.comments || []
+        comments.value = data.comments || data.data || []
+      } else {
+        comments.value = data.comments || data || []
       }
     }
   } catch (err) {
@@ -410,7 +717,7 @@ const fetchComments = async () => {
   }
 }
 
-// 🔥 新增：切换点赞
+// 切换点赞
 const toggleLike = async () => {
   if (!isAuthenticated.value) {
     alert('请先登录')
@@ -444,7 +751,7 @@ const toggleLike = async () => {
   }
 }
 
-// 🔥 新增：切换收藏
+// 切换收藏
 const toggleFavorite = async () => {
   if (!isAuthenticated.value) {
     alert('请先登录')
@@ -478,7 +785,102 @@ const toggleFavorite = async () => {
   }
 }
 
-// 🔥 新增：提交评论
+// 编辑商品
+const editItem = () => {
+  showEditModal.value = true
+}
+
+// 提交编辑 - 修复版
+const submitEdit = async () => {
+  if (!canSubmitEdit.value) {
+    alert('请填写完整的商品信息')
+    return
+  }
+
+  editing.value = true
+  try {
+    const token = getAuthToken()
+
+    // 准备提交数据
+    const submitData = {
+      name: editForm.value.name,
+      price: parseFloat(editForm.value.price),
+      category: editForm.value.category,
+      condition: editForm.value.condition,
+      location: editForm.value.location,
+      description: editForm.value.description,
+    }
+
+    console.log('提交编辑数据:', submitData)
+
+    const response = await fetch(`http://127.0.0.1:8000/api/goods/${item.value.id}/`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(submitData),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      console.log('编辑响应:', data)
+
+      if (data.success) {
+        // 更新商品数据
+        Object.assign(item.value, submitData)
+        showEditModal.value = false
+        alert('商品信息更新成功！')
+      } else {
+        throw new Error(data.message || '更新失败')
+      }
+    } else {
+      const errorText = await response.text()
+      console.error('编辑失败响应:', errorText)
+      throw new Error(`更新失败: ${response.status}`)
+    }
+  } catch (err) {
+    console.error('更新商品失败:', err)
+    alert('更新失败: ' + err.message)
+  } finally {
+    editing.value = false
+  }
+}
+
+// 标记为售出
+const markAsSold = async () => {
+  if (!confirm('确定要将此商品标记为已售出吗？')) {
+    return
+  }
+
+  try {
+    const token = getAuthToken()
+    const response = await fetch(`http://127.0.0.1:8000/api/goods/${item.value.id}/mark_sold/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (response.ok) {
+      item.value.is_sold = true
+      alert('商品已标记为售出！')
+    } else {
+      throw new Error('标记售出失败')
+    }
+  } catch (err) {
+    console.error('标记售出失败:', err)
+    alert('操作失败: ' + err.message)
+  }
+}
+
+// 图片加载失败处理
+const handleImageError = (event) => {
+  event.target.src = '/api/placeholder/500x400?text=图片加载失败'
+}
+
+// 提交评论
 const submitComment = async () => {
   try {
     const token = getAuthToken()
@@ -494,7 +896,7 @@ const submitComment = async () => {
     if (response.ok) {
       const data = await response.json()
       if (data.success) {
-        comments.value.unshift(data.comment)
+        comments.value.unshift(data.comment || data)
         item.value.comments_count = (item.value.comments_count || 0) + 1
         showCommentModal.value = false
         newComment.value = { rating: 5, content: '' }
@@ -509,7 +911,7 @@ const submitComment = async () => {
   }
 }
 
-// 🔥 新增：删除评论
+// 删除评论
 const deleteComment = async (commentId) => {
   if (!confirm('确定要删除这条评论吗？')) {
     return
@@ -537,7 +939,7 @@ const deleteComment = async (commentId) => {
   }
 }
 
-// 🔥 新增：发送留言
+// 发送留言
 const submitMessage = async () => {
   try {
     const token = getAuthToken()
@@ -597,11 +999,6 @@ const handlePurchase = async () => {
   }
 }
 
-// 编辑商品
-const editItem = () => {
-  alert('编辑功能开发中...')
-}
-
 // 删除商品
 const deleteItem = async () => {
   if (!confirm('确定要删除这个商品吗？此操作不可恢复。')) {
@@ -639,6 +1036,10 @@ const goToMyPage = () => {
   router.push('/my')
 }
 
+const goToLogin = () => {
+  router.push('/')
+}
+
 const handleLogout = async () => {
   try {
     const token = getAuthToken()
@@ -671,7 +1072,10 @@ const formatDate = (dateString) => {
     return (
       date.toLocaleDateString('zh-CN') +
       ' ' +
-      date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      date.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
     )
   } catch {
     return dateString
@@ -693,352 +1097,454 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 完整样式代码较长，这里提供关键样式 */
 .item-detail-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0;
   min-height: 100vh;
-  background: #f5f7fa;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.header {
+.header-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px 30px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.header-actions {
+.page-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+}
+
+.nav-actions {
   display: flex;
-  gap: 15px;
+  gap: 12px;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.back-btn {
+  background: #4a5568;
+  color: white;
 }
 
 .my-page-btn {
   background: #9b59b6;
   color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .logout-btn {
-  background: #95a5a6;
+  background: #e74c3c;
   color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
-.back-btn {
+.login-btn {
   background: #3498db;
   color: white;
-  border: none;
+}
+
+.item-detail-content {
+  padding: 30px;
+}
+
+.item-main-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-bottom: 40px;
+}
+
+.image-section {
+  position: relative;
+}
+
+.image-container {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.main-image {
+  width: 100%;
+  height: 500px;
+  object-fit: cover;
+  display: block;
+}
+
+.image-overlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.status-badge {
   padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.item-detail {
+.status-badge.available {
+  background: linear-gradient(135deg, #48bb78, #38a169);
+  color: white;
+}
+
+.status-badge.sold {
+  background: linear-gradient(135deg, #f56565, #e53e3e);
+  color: white;
+}
+
+.info-section {
   display: flex;
   flex-direction: column;
   gap: 30px;
 }
 
-.item-main {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
+.item-header {
   background: white;
-  border-radius: 12px;
   padding: 30px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.item-images {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.main-image {
-  width: 100%;
-  height: 400px;
-  object-fit: cover;
-  border-radius: 8px;
-}
-
-.item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
 .item-title {
-  color: #2c3e50;
-  margin: 0;
-  font-size: 2rem;
-}
-
-.item-status {
-  margin-bottom: 10px;
-}
-
-.status-badge {
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: bold;
-  display: inline-block;
-}
-
-.status-badge.available {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-badge.sold {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.item-price {
   font-size: 2.5rem;
-  font-weight: bold;
-  color: #e74c3c;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0 0 20px 0;
+  line-height: 1.2;
 }
 
-/* 🔥 新增：互动数据样式 */
-.interaction-stats {
-  display: flex;
-  gap: 20px;
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-
-.stat-item {
+.price-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 20px;
+}
+
+.current-price {
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #e53e3e;
+}
+
+.original-price {
+  font-size: 1.2rem;
+  color: #a0aec0;
+  text-decoration: line-through;
+}
+
+.interaction-section {
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.interaction-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+}
+
+.interaction-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: #f7fafc;
+  border-radius: 15px;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 6px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.interaction-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.interaction-item.active {
+  border-color: currentColor;
+}
+
+.interaction-item.like-item.active {
+  background: linear-gradient(135deg, #fff5f5, #fed7d7);
+  color: #e53e3e;
+}
+
+.interaction-item.favorite-item.active {
+  background: linear-gradient(135deg, #fffaf0, #feebc8);
+  color: #dd6b20;
+}
+
+.interaction-icon {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: currentColor;
+  border-radius: 12px;
   transition: all 0.3s ease;
 }
 
-.stat-item:hover {
-  background: #e9ecef;
+.interaction-icon i {
+  color: white;
+  font-size: 22px;
 }
 
-.stat-item.active {
-  color: #e74c3c;
-}
-
-.stat-item.active .fa-heart {
-  color: #e74c3c;
-}
-
-.stat-item.active .fa-star {
-  color: #f39c12;
-}
-
-.item-meta {
+.interaction-info {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
 }
 
-.meta-item {
+.count {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #2d3748;
+  line-height: 1;
+}
+
+.label {
+  font-size: 0.9rem;
+  color: #718096;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.info-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 25px 30px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.card-content {
+  padding: 30px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.info-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.meta-label {
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: #718096;
+  font-weight: 500;
+}
+
+.info-value {
+  color: #2d3748;
   font-weight: 600;
-  color: #2c3e50;
 }
 
-.meta-value {
-  color: #7f8c8d;
+.seller-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.item-description {
-  padding: 20px 0;
-  border-top: 1px solid #e9ecef;
-}
-
-.item-description h3 {
-  color: #2c3e50;
-  margin-bottom: 15px;
-}
-
-.item-description p {
-  color: #7f8c8d;
-  line-height: 1.6;
+.description-content {
+  line-height: 1.8;
+  color: #4a5568;
+  font-size: 1.1rem;
 }
 
 .action-section {
-  margin: 30px 0;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 10px;
+  background: white;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.action-buttons {
   display: flex;
-  flex-direction: column;
   gap: 15px;
+  flex-wrap: wrap;
 }
 
-.purchase-btn {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-  color: white;
-  border: none;
-  padding: 15px 30px;
-  border-radius: 8px;
-  font-size: 18px;
-  font-weight: bold;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.3s ease;
-}
-
-.message-btn {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 6px;
-  cursor: pointer;
+.action-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 10px;
+  padding: 15px 25px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
 }
 
-.purchase-btn:hover:not(:disabled) {
+.action-btn.primary {
+  background: linear-gradient(135deg, #48bb78, #38a169);
+  color: white;
+}
+
+.action-btn.secondary {
+  background: white;
+  color: #4a5568;
+  border: 2px solid #e2e8f0;
+}
+
+.action-btn.danger {
+  background: linear-gradient(135deg, #f56565, #e53e3e);
+  color: white;
+}
+
+.action-btn.large {
+  padding: 18px 30px;
+  font-size: 1.1rem;
+}
+
+.action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-.purchase-btn:disabled {
+.action-btn.secondary:hover {
+  border-color: #4299e1;
+  color: #4299e1;
+}
+
+.action-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
-.sold-message {
-  color: #6c757d;
-  font-size: 16px;
+.sold-notice {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 15px;
-  background: #ecf0f1;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 20px;
+  background: #fed7d7;
+  color: #c53030;
+  border-radius: 12px;
+  font-weight: 600;
 }
 
-.owner-actions {
-  display: flex;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-.edit-btn,
-.delete-btn {
-  padding: 12px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  flex: 1;
-}
-
-.edit-btn {
-  background: #f39c12;
-  color: white;
-}
-
-.delete-btn {
-  background: #e74c3c;
-  color: white;
-}
-
-/* 🔥 新增：评论区域样式 */
 .comments-section {
   background: white;
-  border-radius: 12px;
-  padding: 30px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 2px solid #ecf0f1;
+  padding: 30px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
 }
 
-.section-header h3 {
-  color: #2c3e50;
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
 }
 
-.add-comment-btn {
-  background: #27ae60;
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
+.section-title h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.comment-count {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.comments-content {
+  padding: 30px;
 }
 
 .loading-comments,
 .no-comments {
   text-align: center;
-  padding: 40px 20px;
-  color: #7f8c8d;
+  padding: 60px 30px;
 }
 
-.no-comments i {
-  font-size: 48px;
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.empty-state i {
+  font-size: 4rem;
+  color: #cbd5e0;
   margin-bottom: 15px;
-  color: #bdc3c7;
 }
 
-.hint-text {
-  font-size: 14px;
-  color: #95a5a6;
-  margin-top: 5px;
+.empty-state h3 {
+  color: #4a5568;
+  margin: 0;
+}
+
+.empty-state p {
+  color: #718096;
+  margin: 0;
 }
 
 .comments-list {
@@ -1047,289 +1553,351 @@ onMounted(() => {
   gap: 20px;
 }
 
-.comment-item {
-  padding: 20px;
-  border: 1px solid #ecf0f1;
-  border-radius: 8px;
-  background: #f8f9fa;
+.comment-card {
+  background: #f7fafc;
+  border-radius: 15px;
+  padding: 25px;
+  border: 1px solid #e2e8f0;
 }
 
 .comment-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  margin-bottom: 15px;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
+  flex: 1;
+}
+
+.user-avatar i {
+  font-size: 3rem;
+  color: #9b59b6;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
 }
 
 .username {
   font-weight: 600;
-  color: #2c3e50;
+  color: #2d3748;
+  font-size: 1.1rem;
 }
 
-.rating {
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 5px;
+}
+
+.rating-stars {
   display: flex;
   gap: 2px;
 }
 
-.rating .fa-star {
-  color: #ddd;
-  font-size: 12px;
+.rating-stars .fa-star {
+  color: #e2e8f0;
+  font-size: 14px;
 }
 
-.rating .fa-star.active {
-  color: #f39c12;
+.rating-stars .fa-star.active {
+  color: #f6ad55;
+}
+
+.comment-date {
+  font-size: 0.9rem;
+  color: #718096;
 }
 
 .comment-actions {
   display: flex;
-  align-items: center;
   gap: 10px;
 }
 
-.comment-date {
-  font-size: 12px;
-  color: #95a5a6;
-}
-
-.delete-comment-btn {
-  background: none;
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-  color: #e74c3c;
+  border-radius: 8px;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  transition: all 0.3s ease;
+  background: transparent;
 }
 
-.delete-comment-btn:hover {
-  background: #fdeded;
+.icon-btn.danger {
+  color: #e53e3e;
+}
+
+.icon-btn.danger:hover {
+  background: #fed7d7;
 }
 
 .comment-content {
-  color: #5d6d7e;
-  line-height: 1.5;
+  color: #4a5568;
+  line-height: 1.6;
+  font-size: 1.05rem;
 }
 
-/* 🔥 新增：模态框样式 */
+/* 模态框样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 20px;
 }
 
 .modal-content {
   background: white;
-  border-radius: 12px;
+  border-radius: 20px;
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content.large {
+  max-width: 700px;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #ecf0f1;
+  padding: 25px 30px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #2c3e50;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #7f8c8d;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #2d3748;
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 30px;
 }
 
-.rating-input,
-.comment-input,
-.message-input {
-  margin-bottom: 20px;
+.modal-footer {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  padding: 25px 30px;
+  border-top: 1px solid #e2e8f0;
 }
 
-.rating-input label,
-.comment-input label,
-.message-input label {
+/* 表单样式 */
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-label {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #2c3e50;
+  color: #2d3748;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 0.9rem;
+  color: #a0aec0;
+  margin-top: 5px;
+}
+
+/* 评分样式 */
+.rating-input {
+  margin-bottom: 25px;
 }
 
 .stars {
   display: flex;
   gap: 5px;
+  margin-top: 8px;
 }
 
 .stars .fa-star {
-  color: #ddd;
+  color: #e2e8f0;
   cursor: pointer;
-  font-size: 24px;
-  transition: color 0.2s ease;
+  font-size: 28px;
+  transition: all 0.2s ease;
 }
 
 .stars .fa-star.active {
-  color: #f39c12;
+  color: #f6ad55;
 }
 
 .stars .fa-star:hover {
-  color: #f39c12;
+  transform: scale(1.1);
 }
 
-textarea {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 14px;
-  resize: vertical;
-}
-
-textarea:focus {
-  outline: none;
-  border-color: #3498db;
-}
-
-.char-count {
-  text-align: right;
-  font-size: 12px;
-  color: #95a5a6;
-  margin-top: 5px;
-}
-
-.modal-footer {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  padding: 20px;
-  border-top: 1px solid #ecf0f1;
-}
-
-.cancel-btn,
-.submit-btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.cancel-btn {
-  background: #95a5a6;
-  color: white;
-}
-
-.submit-btn {
-  background: #3498db;
-  color: white;
-}
-
-.submit-btn:disabled {
-  background: #bdc3c7;
-  cursor: not-allowed;
-}
-
-.loading,
-.error {
+/* 加载状态 */
+.loading-state,
+.error-state {
   text-align: center;
-  padding: 60px 40px;
+  padding: 80px 30px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
+  border-radius: 20px;
+  margin: 50px 30px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
-.loading i {
-  font-size: 32px;
-  color: #3498db;
-  margin-bottom: 15px;
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e2e8f0;
+  border-left: 4px solid #4299e1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
 }
 
-.error {
-  background: #fdeded;
-  color: #e74c3c;
+.spinner.small {
+  width: 30px;
+  height: 30px;
+  border-width: 3px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.error-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+}
+
+.error-state h3 {
+  color: #e53e3e;
+  margin: 0 0 10px 0;
+}
+
+.error-state p {
+  color: #718096;
+  margin: 0 0 25px 0;
 }
 
 .error-actions {
   display: flex;
   gap: 15px;
   justify-content: center;
-  margin-top: 20px;
 }
 
-.retry-btn {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .item-main-section {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .main-image {
+    height: 400px;
+  }
 }
 
 @media (max-width: 768px) {
-  .item-detail-container {
-    padding: 10px;
+  .header-nav {
+    padding: 15px 20px;
+    flex-direction: column;
+    gap: 15px;
   }
 
-  .item-main {
-    grid-template-columns: 1fr;
-    gap: 20px;
+  .nav-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .nav-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .item-detail-content {
     padding: 20px;
   }
 
-  .header {
-    flex-direction: column;
-    gap: 15px;
-    text-align: center;
-  }
-
-  .header-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .header-actions button {
-    width: 100%;
-  }
-
   .item-title {
-    font-size: 1.5rem;
-  }
-
-  .item-price {
     font-size: 2rem;
   }
 
-  .interaction-stats {
-    flex-direction: column;
-    gap: 10px;
+  .current-price {
+    font-size: 2.2rem;
   }
 
-  .owner-actions {
+  .interaction-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
     flex-direction: column;
+  }
+
+  .action-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .section-header {
@@ -1338,19 +1906,24 @@ textarea:focus {
     text-align: center;
   }
 
-  .comment-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
   .modal-content {
     width: 95%;
-    margin: 20px;
+    margin: 10px;
   }
 
-  .error-actions {
+  .modal-footer {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .interaction-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .interaction-item {
+    justify-content: center;
+    text-align: center;
   }
 }
 </style>
