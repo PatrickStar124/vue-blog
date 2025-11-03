@@ -38,7 +38,6 @@ const router = createRouter({
       component: ItemDetailView,
       meta: { requiresAuth: true },
     },
-    // 我的页面路由
     {
       path: '/my',
       name: 'my-page',
